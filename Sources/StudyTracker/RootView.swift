@@ -5,11 +5,28 @@ struct RootView: View {
     @State private var selection: SidebarSelection = .dashboard
 
     var body: some View {
-        NavigationSplitView {
-            SidebarView(selection: $selection)
-                .navigationSplitViewColumnWidth(min: 170, ideal: 220, max: 280)
-        } detail: {
-            DetailView(selection: selection)
+        VStack(spacing: 0) {
+            if store.isPersistenceLocked {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                    Text("Study data could not be opened. The save file was left unchanged.")
+                        .lineLimit(2)
+                    Spacer()
+                }
+                .font(.callout)
+                .foregroundStyle(.orange)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(.orange.opacity(0.1))
+            }
+
+            NavigationSplitView {
+                SidebarView(selection: $selection)
+                    .navigationSplitViewColumnWidth(min: 170, ideal: 220, max: 280)
+            } detail: {
+                DetailView(selection: selection)
+                    .disabled(store.isPersistenceLocked && selection != .settings)
+            }
         }
         .background(AppTheme.background)
     }
@@ -24,7 +41,7 @@ private struct SidebarView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Study Tracker")
                     .font(.system(size: 21, weight: .semibold, design: .rounded))
-                Text("\(store.data.classes.count)/\(StudyStore.maxClasses) classes")
+                Text("\(store.activeClasses.count)/\(StudyStore.maxClasses) classes")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -39,7 +56,7 @@ private struct SidebarView: View {
                     .tag(SidebarSelection.pomodoro)
 
                 Section("Classes") {
-                    ForEach(store.data.classes) { studyClass in
+                    ForEach(store.activeClasses) { studyClass in
                         HStack(spacing: 9) {
                             Circle()
                                 .fill(Color(hex: studyClass.colorHex))
@@ -58,7 +75,7 @@ private struct SidebarView: View {
 
             Button {
                 store.addClass()
-                if let lastClass = store.data.classes.last {
+                if let lastClass = store.activeClasses.last {
                     selection = .studyClass(lastClass.id)
                 }
             } label: {
@@ -66,7 +83,7 @@ private struct SidebarView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(store.data.classes.count >= StudyStore.maxClasses)
+            .disabled(store.isPersistenceLocked || store.activeClasses.count >= StudyStore.maxClasses)
             .padding([.horizontal, .bottom], 12)
         }
         .background(.thinMaterial)
@@ -87,7 +104,7 @@ private struct DetailView: View {
             case .settings:
                 SettingsView()
             case .studyClass(let id):
-                if store.data.classes.contains(where: { $0.id == id }) {
+                if store.activeClasses.contains(where: { $0.id == id }) {
                     ClassDetailView(classID: id)
                 } else {
                     DashboardView(classID: nil)

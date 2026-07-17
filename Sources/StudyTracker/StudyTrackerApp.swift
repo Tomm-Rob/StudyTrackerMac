@@ -16,7 +16,7 @@ struct StudyTrackerApp: App {
                 Button("New Class") {
                     store.addClass()
                 }
-                .disabled(store.data.classes.count >= StudyStore.maxClasses)
+                .disabled(store.isPersistenceLocked || store.activeClasses.count >= StudyStore.maxClasses)
                 .keyboardShortcut("n")
             }
         }

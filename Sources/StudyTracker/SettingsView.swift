@@ -36,6 +36,7 @@ struct SettingsView: View {
                         Label("Use Default", systemImage: "arrow.uturn.backward")
                     }
                 }
+                .disabled(store.isPersistenceLocked)
 
                 if let error = store.lastError {
                     Text(error)
@@ -56,6 +57,7 @@ struct SettingsView: View {
                         set: { store.data.chartSettings.dailyBarColorHex = $0.hexString() ?? store.data.chartSettings.dailyBarColorHex }
                     )
                 )
+                .disabled(store.isPersistenceLocked)
 
                 Text("The circle graph uses each class color. Change a class color from that class page.")
                     .font(.callout)

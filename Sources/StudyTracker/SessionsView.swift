@@ -12,7 +12,16 @@ struct StudySessionTimer: View {
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var effectiveClassID: UUID? {
-        classID ?? selectedClassID ?? store.data.classes.first?.id
+        if let classID {
+            return store.activeClasses.contains(where: { $0.id == classID }) ? classID : nil
+        }
+
+        if let selectedClassID,
+           store.activeClasses.contains(where: { $0.id == selectedClassID }) {
+            return selectedClassID
+        }
+
+        return store.activeClasses.first?.id
     }
 
     var body: some View {
@@ -36,11 +45,16 @@ struct StudySessionTimer: View {
         .padding(12)
         .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .onAppear {
-            selectedClassID = selectedClassID ?? store.data.classes.first?.id
+            selectedClassID = effectiveClassID
         }
         .onReceive(timer) { _ in
             guard isRunning else { return }
             elapsedSeconds += 1
+        }
+        .onChange(of: store.activeClasses.map(\.id)) { _, _ in
+            if classID == nil {
+                selectedClassID = effectiveClassID
+            }
         }
     }
 
@@ -67,7 +81,7 @@ struct StudySessionTimer: View {
                 get: { effectiveClassID },
                 set: { selectedClassID = $0 }
             )) {
-                ForEach(store.data.classes) { studyClass in
+                ForEach(store.activeClasses) { studyClass in
                     Text(studyClass.name).tag(Optional(studyClass.id))
                 }
             }
@@ -124,8 +138,9 @@ struct StudySessionTimer: View {
         guard let effectiveClassID, elapsedSeconds > 0 else { return }
         store.addSession(
             classID: effectiveClassID,
-            date: sessionStartedAt ?? Date(),
-            duration: TimeInterval(elapsedSeconds)
+            startedAt: sessionStartedAt ?? Date(),
+            duration: TimeInterval(elapsedSeconds),
+            source: .timer
         )
         resetTimer()
     }
@@ -141,7 +156,16 @@ struct SessionEditor: View {
     @State private var minutes = 0
 
     private var effectiveClassID: UUID? {
-        classID ?? selectedClassID ?? store.data.classes.first?.id
+        if let classID {
+            return store.activeClasses.contains(where: { $0.id == classID }) ? classID : nil
+        }
+
+        if let selectedClassID,
+           store.activeClasses.contains(where: { $0.id == selectedClassID }) {
+            return selectedClassID
+        }
+
+        return store.activeClasses.first?.id
     }
 
     var body: some View {
@@ -154,7 +178,7 @@ struct SessionEditor: View {
                 verticalEditorControls
             }
 
-            if store.data.classes.isEmpty {
+            if store.activeClasses.isEmpty {
                 Text("Add a class first, then study sessions can be logged here.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -163,8 +187,11 @@ struct SessionEditor: View {
         .padding(12)
         .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .onAppear {
-            if selectedClassID == nil {
-                selectedClassID = store.data.classes.first?.id
+            selectedClassID = effectiveClassID
+        }
+        .onChange(of: store.activeClasses.map(\.id)) { _, _ in
+            if classID == nil {
+                selectedClassID = effectiveClassID
             }
         }
     }
@@ -202,7 +229,7 @@ struct SessionEditor: View {
                     get: { effectiveClassID },
                     set: { selectedClassID = $0 }
                 )) {
-                    ForEach(store.data.classes) { studyClass in
+                    ForEach(store.activeClasses) { studyClass in
                         Text(studyClass.name).tag(Optional(studyClass.id))
                     }
                 }
@@ -250,7 +277,7 @@ struct SessionEditor: View {
     private func addSession() {
         guard let effectiveClassID else { return }
         let duration = TimeInterval((hours * 60 + minutes) * 60)
-        store.addSession(classID: effectiveClassID, date: date, duration: duration)
+        store.addSession(classID: effectiveClassID, startedAt: date, duration: duration)
     }
 }
 
@@ -301,7 +328,7 @@ private struct SessionRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(store.className(for: session.classID))
                     .font(.body.weight(.medium))
-                Text(session.date.formatted(date: .abbreviated, time: .shortened))
+                Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -344,6 +371,15 @@ struct SessionEditSheet: View {
     @State private var hours: Int
     @State private var minutes: Int
 
+    private var selectableClasses: [StudyClass] {
+        guard let currentClass = store.data.classes.first(where: { $0.id == session.classID }),
+              currentClass.isArchived else {
+            return store.activeClasses
+        }
+
+        return [currentClass] + store.activeClasses
+    }
+
     init(session: StudySession) {
         _session = State(initialValue: session)
         let totalMinutes = Int(session.duration / 60)
@@ -357,12 +393,12 @@ struct SessionEditSheet: View {
                 .font(.title2.weight(.semibold))
 
             Picker("Class", selection: $session.classID) {
-                ForEach(store.data.classes) { studyClass in
-                    Text(studyClass.name).tag(studyClass.id)
+                ForEach(selectableClasses) { studyClass in
+                    Text(studyClass.name + (studyClass.isArchived ? " (Archived)" : "")).tag(studyClass.id)
                 }
             }
 
-            DatePicker("Date", selection: $session.date)
+            DatePicker("Started", selection: $session.startedAt)
 
             Stepper(value: $hours, in: 0...24) {
                 LabeledValue(title: "Hours", value: "\(hours)")

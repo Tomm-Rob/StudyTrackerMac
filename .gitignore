@@ -4,6 +4,15 @@
 
 ## User settings
 xcuserdata/
+*.xcuserstate
+*.xcuserdata/
+*.xcuserdatad/
+*.xccheckout
+*.moved-aside
+
+## macOS metadata
+.DS_Store
+**/.DS_Store
 
 ## Obj-C/Swift specific
 *.hmap
@@ -30,6 +39,24 @@ playground.xcworkspace
 # .swiftpm
 
 .build/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+DerivedData/
+dist/
+
+## Local study data and migration backups
+study-tracker-data.json
+study-tracker-data-v*-backup.json
+*.sqlite
+*.sqlite3
+*.db
+
+## Signing identities and provisioning files
+*.cer
+*.p12
+*.mobileprovision
+*.provisionprofile
+.env
+.env.*
 
 # CocoaPods
 #
@@ -60,22 +87,3 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
-
-# Local app output and machine-specific files
-dist/
-DerivedData/
-.DS_Store
-*.xcuserstate
-*.xcuserdata/
-*.xcuserdatad/
-*.xccheckout
-*.moved-aside
-*.p12
-*.cer
-*.mobileprovision
-.env
-.env.*
-study-tracker-data.json
-*.sqlite
-*.sqlite3
-*.db

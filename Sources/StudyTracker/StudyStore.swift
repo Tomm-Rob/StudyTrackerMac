@@ -7,35 +7,96 @@ final class StudyStore: ObservableObject {
 
     @Published var data: StudyData {
         didSet {
-            if data.classes.count > Self.maxClasses {
-                data.classes = Array(data.classes.prefix(Self.maxClasses))
-            }
             save()
         }
     }
 
     @Published private(set) var dataFileURL: URL
     @Published var lastError: String?
+    @Published private(set) var isPersistenceLocked = false
 
     private static let dataFileName = "study-tracker-data.json"
     private static let directoryKey = "StudyTracker.SaveDirectory"
+    private static let legacyPomodoroKeys = [
+        "Pomodoro.FocusMinutes",
+        "Pomodoro.ShortBreakMinutes",
+        "Pomodoro.LongBreakMinutes"
+    ]
+    private let analytics = StudyAnalyticsService()
+
+    var activeClasses: [StudyClass] {
+        data.classes.filter { !$0.isArchived }
+    }
 
     init() {
         let directory = Self.initialSaveDirectory()
         let fileURL = directory.appendingPathComponent(Self.dataFileName)
+        let loadResult = Self.load(from: fileURL)
+        var loadedData = StudyData()
+        var originalData: Data?
+        var originalSchemaVersion: Int?
+        var persistenceLocked = false
+        var initialError: String?
+
+        switch loadResult {
+        case .missing:
+            break
+        case .loaded(let data, let rawData):
+            loadedData = data
+            originalData = rawData
+            originalSchemaVersion = data.schemaVersion
+        case .unsupportedSchema(let version):
+            persistenceLocked = true
+            initialError = "This save file was created by a newer version of Study Tracker (data version \(version)). It was left unchanged."
+        case .failed(let message):
+            persistenceLocked = true
+            initialError = message
+        }
+
+        let requiresMigration = !persistenceLocked
+            && loadedData.schemaVersion < StudyData.currentSchemaVersion
+
+        if requiresMigration {
+            loadedData.migrateToCurrentSchema(legacyPomodoroSettings: Self.legacyPomodoroSettings())
+        }
+
         self.dataFileURL = fileURL
-        self.data = Self.load(from: fileURL)
+        self.data = loadedData
+        self.isPersistenceLocked = persistenceLocked
+        self.lastError = initialError
+
+        guard !isPersistenceLocked else { return }
+
         ensureSaveDirectoryExists()
+
+        if requiresMigration, let originalData, let originalSchemaVersion {
+            do {
+                try Self.backUp(
+                    originalData,
+                    schemaVersion: originalSchemaVersion,
+                    beside: fileURL
+                )
+            } catch {
+                isPersistenceLocked = true
+                lastError = "Could not create a migration backup, so the original save file was left unchanged: \(error.localizedDescription)"
+                return
+            }
+        }
+
         save()
+
+        if requiresMigration, lastError == nil {
+            Self.clearLegacyPomodoroSettings()
+        }
     }
 
     func addClass() {
-        guard data.classes.count < Self.maxClasses else { return }
+        guard activeClasses.count < Self.maxClasses else { return }
 
-        let color = defaultColors[data.classes.count % defaultColors.count]
+        let color = defaultColors[activeClasses.count % defaultColors.count]
         var baseName = "New Class"
         var index = 1
-        let names = Set(data.classes.map(\.name))
+        let names = Set(activeClasses.map(\.name))
 
         while names.contains(baseName) {
             index += 1
@@ -45,14 +106,32 @@ final class StudyStore: ObservableObject {
         data.classes.append(StudyClass(name: baseName, colorHex: color))
     }
 
-    func deleteClass(id: UUID) {
-        data.classes.removeAll { $0.id == id }
-        data.sessions.removeAll { $0.classID == id }
+    func archiveClass(id: UUID) {
+        guard let index = data.classes.firstIndex(where: { $0.id == id && !$0.isArchived }) else { return }
+        var studyClass = data.classes[index]
+        studyClass.isArchived = true
+        studyClass.archivedAt = Date()
+        data.classes[index] = studyClass
     }
 
-    func addSession(classID: UUID, date: Date, duration: TimeInterval) {
-        guard duration > 0, data.classes.contains(where: { $0.id == classID }) else { return }
-        data.sessions.append(StudySession(classID: classID, date: date, duration: duration))
+    func addSession(
+        classID: UUID,
+        startedAt: Date,
+        duration: TimeInterval,
+        source: StudySessionSource = .manual,
+        pomodoroIntervalCount: Int = 0
+    ) {
+        guard duration > 0,
+              data.classes.contains(where: { $0.id == classID && !$0.isArchived }) else { return }
+        data.sessions.append(
+            StudySession(
+                classID: classID,
+                startedAt: startedAt,
+                duration: duration,
+                source: source,
+                pomodoroIntervalCount: pomodoroIntervalCount
+            )
+        )
     }
 
     func updateSession(_ session: StudySession) {
@@ -75,20 +154,19 @@ final class StudyStore: ObservableObject {
     func sessions(for classID: UUID? = nil) -> [StudySession] {
         data.sessions
             .filter { classID == nil || $0.classID == classID }
-            .sorted { $0.date > $1.date }
+            .sorted { $0.startedAt > $1.startedAt }
     }
 
     func dailyTotals(for classID: UUID? = nil, daysBack: Int = 14) -> [DailyTotal] {
         let calendar = Calendar.current
         let today = Date().startOfDay
         let start = calendar.date(byAdding: .day, value: -(daysBack - 1), to: today) ?? today
-        let relevantSessions = data.sessions.filter { session in
-            let isMatchingClass = classID == nil || session.classID == classID
-            return isMatchingClass && session.date.startOfDay >= start
-        }
-
-        let grouped = Dictionary(grouping: relevantSessions, by: { $0.date.startOfDay })
-            .mapValues { $0.reduce(0) { $0 + $1.duration } }
+        let end = calendar.date(byAdding: .day, value: 1, to: today) ?? Date.distantFuture
+        let grouped = analytics.studyTimeByDate(
+            in: data.sessions,
+            courseID: classID,
+            interval: DateInterval(start: start, end: end)
+        )
 
         return (0..<daysBack).compactMap { offset in
             guard let day = calendar.date(byAdding: .day, value: offset, to: start) else { return nil }
@@ -97,8 +175,7 @@ final class StudyStore: ObservableObject {
     }
 
     func classTotals() -> [ClassTotal] {
-        let grouped = Dictionary(grouping: data.sessions, by: \.classID)
-            .mapValues { $0.reduce(0) { $0 + $1.duration } }
+        let grouped = analytics.studyTimeByCourse(in: data.sessions)
 
         return data.classes.compactMap { studyClass in
             let seconds = grouped[studyClass.id] ?? 0
@@ -130,6 +207,8 @@ final class StudyStore: ObservableObject {
     }
 
     private func save() {
+        guard !isPersistenceLocked else { return }
+
         do {
             ensureSaveDirectoryExists()
             let encoded = try JSONEncoder.studyTracker.encode(data)
@@ -166,13 +245,57 @@ final class StudyStore: ObservableObject {
         return supportDirectory.appendingPathComponent("Study Tracker", isDirectory: true)
     }
 
-    private static func load(from url: URL) -> StudyData {
-        guard let rawData = try? Data(contentsOf: url),
-              let decoded = try? JSONDecoder.studyTracker.decode(StudyData.self, from: rawData) else {
-            return StudyData()
+    private static func load(from url: URL) -> LoadResult {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return .missing
         }
 
-        return decoded
+        do {
+            let rawData = try Data(contentsOf: url)
+            let header = try JSONDecoder.studyTracker.decode(SchemaHeader.self, from: rawData)
+
+            guard header.schemaVersion <= StudyData.currentSchemaVersion else {
+                return .unsupportedSchema(header.schemaVersion)
+            }
+
+            let decoded = try JSONDecoder.studyTracker.decode(StudyData.self, from: rawData)
+            return .loaded(decoded, rawData)
+        } catch {
+            return .failed("Could not read your study data, so the save file was left unchanged: \(error.localizedDescription)")
+        }
+    }
+
+    private static func backUp(_ data: Data, schemaVersion: Int, beside fileURL: URL) throws {
+        let backupURL = fileURL.deletingLastPathComponent()
+            .appendingPathComponent("study-tracker-data-v\(schemaVersion)-backup.json")
+
+        guard !FileManager.default.fileExists(atPath: backupURL.path) else { return }
+        try data.write(to: backupURL, options: [.atomic])
+    }
+
+    private static func legacyPomodoroSettings() -> PomodoroSettings? {
+        let defaults = UserDefaults.standard
+        guard legacyPomodoroKeys.contains(where: { defaults.object(forKey: $0) != nil }) else {
+            return nil
+        }
+
+        var settings = PomodoroSettings()
+        if defaults.object(forKey: legacyPomodoroKeys[0]) != nil {
+            settings.focusMinutes = defaults.integer(forKey: legacyPomodoroKeys[0])
+        }
+        if defaults.object(forKey: legacyPomodoroKeys[1]) != nil {
+            settings.shortBreakMinutes = defaults.integer(forKey: legacyPomodoroKeys[1])
+        }
+        if defaults.object(forKey: legacyPomodoroKeys[2]) != nil {
+            settings.longBreakMinutes = defaults.integer(forKey: legacyPomodoroKeys[2])
+        }
+        settings.normalize()
+        return settings
+    }
+
+    private static func clearLegacyPomodoroSettings() {
+        let defaults = UserDefaults.standard
+        legacyPomodoroKeys.forEach(defaults.removeObject(forKey:))
     }
 
     private let defaultColors = [
@@ -187,6 +310,26 @@ final class StudyStore: ObservableObject {
         "#4F46E5",
         "#059669"
     ]
+}
+
+private enum LoadResult {
+    case missing
+    case loaded(StudyData, Data)
+    case unsupportedSchema(Int)
+    case failed(String)
+}
+
+private struct SchemaHeader: Decodable {
+    let schemaVersion: Int
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+    }
 }
 
 private extension JSONEncoder {

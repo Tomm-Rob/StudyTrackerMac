@@ -10,6 +10,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "StudyTracker"
+        ),
+        .testTarget(
+            name: "StudyTrackerTests",
+            dependencies: ["StudyTracker"]
         )
     ]
 )

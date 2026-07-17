@@ -42,7 +42,7 @@ struct DashboardView: View {
                     MetricTile(title: "Sessions", value: "\(sessionCount)", systemImage: "list.bullet.rectangle")
 
                     if classID == nil {
-                        MetricTile(title: "Classes", value: "\(store.data.classes.count)", systemImage: "books.vertical")
+                        MetricTile(title: "Classes", value: "\(store.activeClasses.count)", systemImage: "books.vertical")
                     } else {
                         MetricTile(title: "Average Session", value: averageSessionDuration.compactDuration, systemImage: "chart.line.uptrend.xyaxis")
                     }
@@ -181,17 +181,17 @@ private struct ClassHeader: View {
                 )
                 .labelsHidden()
 
-                Button(role: .destructive) {
+                Button {
                     confirmDelete = true
                 } label: {
-                    Label("Delete", systemImage: "trash")
+                    Label("Archive", systemImage: "archivebox")
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .confirmationDialog("Delete this class and all of its sessions?", isPresented: $confirmDelete) {
-                Button("Delete Class", role: .destructive) {
-                    store.deleteClass(id: classID)
+            .confirmationDialog("Archive this class? Its study history will be preserved.", isPresented: $confirmDelete) {
+                Button("Archive Class") {
+                    store.archiveClass(id: classID)
                 }
                 Button("Cancel", role: .cancel) {}
             }
@@ -289,7 +289,11 @@ private struct DailyBarChart: View {
     ) {
         switch phase {
         case .active(let location):
-            let plotFrame = geometry[proxy.plotAreaFrame]
+            guard let plotFrameAnchor = proxy.plotFrame else {
+                hoverTooltip = nil
+                return
+            }
+            let plotFrame = geometry[plotFrameAnchor]
             guard plotFrame.contains(location) else {
                 hoverTooltip = nil
                 return
@@ -434,7 +438,7 @@ private struct ClassOverviewChart: View {
                 }
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], alignment: .leading, spacing: 6) {
-                    ForEach(store.data.classes) { studyClass in
+                    ForEach(totals.map(\.studyClass)) { studyClass in
                         HStack(spacing: 6) {
                             Circle()
                                 .fill(Color(hex: studyClass.colorHex))

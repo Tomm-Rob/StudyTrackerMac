@@ -7,11 +7,12 @@ A minimalist native macOS study-time tracker built with SwiftUI.
 - Tracks study time for up to 50 classes.
 - Lets each class have a name and custom color.
 - Adds, edits, and deletes study sessions.
+- Archives classes without deleting their study history.
 - Starts a study-session timer and logs the elapsed time directly.
 - Shows a daily study-time bar graph.
 - Shows total time by class in a circle chart.
 - Shows an all-classes circle chart and class study-time leaderboard.
-- Includes an adjustable Pomodoro timer with classic defaults.
+- Includes an adjustable Pomodoro timer with settings saved alongside study data.
 - Saves data locally in JSON, with a setting to choose the save folder.
 - Includes a custom Dock/app icon.
 
