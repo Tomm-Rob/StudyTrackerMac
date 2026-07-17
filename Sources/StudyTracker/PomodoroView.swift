@@ -10,6 +10,7 @@ struct PomodoroView: View {
     @State private var completedFocusSessions = 0
     @State private var selectedClassID: UUID?
     @State private var elapsedFocusSeconds = 0
+    @State private var focusRating: Int?
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -127,11 +128,13 @@ struct PomodoroView: View {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 10) {
                     logPicker
+                    FocusRatingControl(rating: $focusRating)
                     logButton
                 }
 
-                VStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 10) {
                     logPicker
+                    FocusRatingControl(rating: $focusRating)
                     logButton
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -285,9 +288,11 @@ struct PomodoroView: View {
             startedAt: Date().addingTimeInterval(-TimeInterval(elapsedFocusSeconds)),
             duration: TimeInterval(elapsedFocusSeconds),
             source: .pomodoro,
-            pomodoroIntervalCount: completedInterval ? 1 : 0
+            pomodoroIntervalCount: completedInterval ? 1 : 0,
+            focusRating: focusRating
         )
         elapsedFocusSeconds = 0
+        focusRating = nil
     }
 }
 

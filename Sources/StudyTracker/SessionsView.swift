@@ -8,6 +8,7 @@ struct StudySessionTimer: View {
     @State private var elapsedSeconds = 0
     @State private var isRunning = false
     @State private var sessionStartedAt: Date?
+    @State private var focusRating: Int?
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -30,6 +31,7 @@ struct StudySessionTimer: View {
                 timerHeader
                 Spacer(minLength: 8)
                 classPicker
+                FocusRatingControl(rating: $focusRating)
                 timerControls
             }
 
@@ -37,6 +39,7 @@ struct StudySessionTimer: View {
                 timerHeader
                 HStack(spacing: 12) {
                     classPicker
+                    FocusRatingControl(rating: $focusRating)
                     Spacer()
                     timerControls
                 }
@@ -132,6 +135,7 @@ struct StudySessionTimer: View {
         isRunning = false
         elapsedSeconds = 0
         sessionStartedAt = nil
+        focusRating = nil
     }
 
     private func logTimer() {
@@ -140,7 +144,8 @@ struct StudySessionTimer: View {
             classID: effectiveClassID,
             startedAt: sessionStartedAt ?? Date(),
             duration: TimeInterval(elapsedSeconds),
-            source: .timer
+            source: .timer,
+            focusRating: focusRating
         )
         resetTimer()
     }
@@ -154,6 +159,7 @@ struct SessionEditor: View {
     @State private var date = Date()
     @State private var hours = 1
     @State private var minutes = 0
+    @State private var focusRating: Int?
 
     private var effectiveClassID: UUID? {
         if let classID {
@@ -201,6 +207,7 @@ struct SessionEditor: View {
             classControl
             dateControl
             durationControls
+            FocusRatingControl(rating: $focusRating)
             Spacer(minLength: 0)
             addButton
         }
@@ -212,6 +219,7 @@ struct SessionEditor: View {
             dateControl
             HStack(spacing: 10) {
                 durationControls
+                FocusRatingControl(rating: $focusRating)
                 Spacer()
                 addButton
             }
@@ -277,7 +285,13 @@ struct SessionEditor: View {
     private func addSession() {
         guard let effectiveClassID else { return }
         let duration = TimeInterval((hours * 60 + minutes) * 60)
-        store.addSession(classID: effectiveClassID, startedAt: date, duration: duration)
+        store.addSession(
+            classID: effectiveClassID,
+            startedAt: date,
+            duration: duration,
+            focusRating: focusRating
+        )
+        focusRating = nil
     }
 }
 
@@ -338,6 +352,12 @@ private struct SessionRow: View {
             Text(session.duration.compactDuration)
                 .font(.body.weight(.medium))
                 .monospacedDigit()
+
+            if let focusRating = session.focusRating {
+                Label("\(focusRating)/5", systemImage: "star.fill")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
 
             Button {
                 editingSession = session
@@ -408,6 +428,8 @@ struct SessionEditSheet: View {
                 LabeledValue(title: "Minutes", value: "\(minutes)")
             }
 
+            FocusRatingControl(rating: $session.focusRating)
+
             HStack {
                 Spacer()
                 Button("Cancel") {
@@ -425,6 +447,38 @@ struct SessionEditSheet: View {
         }
         .padding(24)
         .frame(width: 420)
+    }
+}
+
+struct FocusRatingControl: View {
+    @Binding var rating: Int?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Focus")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Picker("Focus", selection: $rating) {
+                Text("Not rated").tag(Int?.none)
+                Divider()
+                ForEach(1...5, id: \.self) { value in
+                    Text("\(value) - \(label(for: value))").tag(Optional(value))
+                }
+            }
+            .labelsHidden()
+            .frame(width: 130)
+        }
+    }
+
+    private func label(for value: Int) -> String {
+        switch value {
+        case 1: "Low"
+        case 2: "Fair"
+        case 3: "Good"
+        case 4: "Strong"
+        default: "Excellent"
+        }
     }
 }
 
