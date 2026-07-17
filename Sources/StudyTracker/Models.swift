@@ -3,11 +3,12 @@ import SwiftUI
 import AppKit
 
 struct StudyData: Codable, Equatable {
-    static let currentSchemaVersion = 3
+    static let currentSchemaVersion = 4
 
     var schemaVersion: Int = currentSchemaVersion
     var classes: [StudyClass] = []
     var sessions: [StudySession] = []
+    var goals: [StudyGoal] = []
     var chartSettings = ChartSettings()
     var pomodoroSettings = PomodoroSettings()
 
@@ -15,12 +16,14 @@ struct StudyData: Codable, Equatable {
         schemaVersion: Int = currentSchemaVersion,
         classes: [StudyClass] = [],
         sessions: [StudySession] = [],
+        goals: [StudyGoal] = [],
         chartSettings: ChartSettings = ChartSettings(),
         pomodoroSettings: PomodoroSettings = PomodoroSettings()
     ) {
         self.schemaVersion = schemaVersion
         self.classes = classes
         self.sessions = sessions
+        self.goals = goals
         self.chartSettings = chartSettings
         self.pomodoroSettings = pomodoroSettings
     }
@@ -29,6 +32,7 @@ struct StudyData: Codable, Equatable {
         case schemaVersion
         case classes
         case sessions
+        case goals
         case chartSettings
         case pomodoroSettings
     }
@@ -38,6 +42,7 @@ struct StudyData: Codable, Equatable {
         schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
         classes = try container.decodeIfPresent([StudyClass].self, forKey: .classes) ?? []
         sessions = try container.decodeIfPresent([StudySession].self, forKey: .sessions) ?? []
+        goals = try container.decodeIfPresent([StudyGoal].self, forKey: .goals) ?? []
         chartSettings = try container.decodeIfPresent(ChartSettings.self, forKey: .chartSettings) ?? ChartSettings()
         pomodoroSettings = try container.decodeIfPresent(PomodoroSettings.self, forKey: .pomodoroSettings) ?? PomodoroSettings()
     }

@@ -28,6 +28,10 @@ final class StudyStore: ObservableObject {
         data.classes.filter { !$0.isArchived }
     }
 
+    var activeGoals: [StudyGoal] {
+        data.goals.filter { !$0.isArchived }
+    }
+
     init() {
         let directory = Self.initialSaveDirectory()
         let fileURL = directory.appendingPathComponent(Self.dataFileName)
@@ -112,6 +116,22 @@ final class StudyStore: ObservableObject {
         studyClass.isArchived = true
         studyClass.archivedAt = Date()
         data.classes[index] = studyClass
+    }
+
+    func addGoal(_ goal: StudyGoal) {
+        data.goals.append(goal)
+    }
+
+    func updateGoal(_ goal: StudyGoal) {
+        guard let index = data.goals.firstIndex(where: { $0.id == goal.id }) else { return }
+        data.goals[index] = goal
+    }
+
+    func archiveGoal(id: UUID) {
+        guard let index = data.goals.firstIndex(where: { $0.id == id && !$0.isArchived }) else { return }
+        var goal = data.goals[index]
+        goal.isArchived = true
+        data.goals[index] = goal
     }
 
     func addSession(

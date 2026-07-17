@@ -29,6 +29,7 @@ final class StudyDataMigrationTests: XCTestCase {
         XCTAssertEqual(data.sessions[0].source, .manual)
         XCTAssertEqual(data.sessions[0].pomodoroIntervalCount, 0)
         XCTAssertEqual(data.pomodoroSettings, PomodoroSettings())
+        XCTAssertTrue(data.goals.isEmpty)
 
         data.migrateToCurrentSchema(legacyPomodoroSettings: nil)
         XCTAssertEqual(data.schemaVersion, StudyData.currentSchemaVersion)
@@ -58,6 +59,25 @@ final class StudyDataMigrationTests: XCTestCase {
         XCTAssertEqual(data.sessions[0].pomodoroIntervalCount, 0)
         XCTAssertEqual(data.chartSettings.dailyBarColorHex, "#2563EB")
         XCTAssertEqual(data.pomodoroSettings, PomodoroSettings())
+        XCTAssertTrue(data.goals.isEmpty)
+    }
+
+    func testVersionThreeDataDecodesWithEmptyGoals() throws {
+        let json = """
+        {
+          "schemaVersion": 3,
+          "classes": [],
+          "sessions": [],
+          "chartSettings": {},
+          "pomodoroSettings": {}
+        }
+        """
+
+        var data = try decoder.decode(StudyData.self, from: Data(json.utf8))
+
+        XCTAssertTrue(data.goals.isEmpty)
+        data.migrateToCurrentSchema(legacyPomodoroSettings: nil)
+        XCTAssertEqual(data.schemaVersion, StudyData.currentSchemaVersion)
     }
 
     func testCurrentSessionEncodingUsesAnalyticsFieldsAndStartedAt() throws {
@@ -69,18 +89,29 @@ final class StudyDataMigrationTests: XCTestCase {
             source: .pomodoro,
             pomodoroIntervalCount: 1
         )
-        let data = StudyData(classes: [studyClass], sessions: [session])
+        let goal = StudyGoal(
+            kind: .course,
+            targetDuration: 36_000,
+            courseID: studyClass.id,
+            startDate: Date(timeIntervalSince1970: 1_700_000_000),
+            targetDate: Date(timeIntervalSince1970: 1_700_604_800)
+        )
+        let data = StudyData(classes: [studyClass], sessions: [session], goals: [goal])
 
         let encoded = try encoder.encode(data)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
         let sessions = try XCTUnwrap(json["sessions"] as? [[String: Any]])
         let encodedSession = try XCTUnwrap(sessions.first)
+        let goals = try XCTUnwrap(json["goals"] as? [[String: Any]])
+        let encodedGoal = try XCTUnwrap(goals.first)
 
         XCTAssertEqual(json["schemaVersion"] as? Int, StudyData.currentSchemaVersion)
         XCTAssertNotNil(encodedSession["startedAt"])
         XCTAssertNil(encodedSession["date"])
         XCTAssertEqual(encodedSession["source"] as? String, "pomodoro")
         XCTAssertEqual(encodedSession["pomodoroIntervalCount"] as? Int, 1)
+        XCTAssertEqual(encodedGoal["kind"] as? String, "course")
+        XCTAssertEqual(encodedGoal["targetDuration"] as? Double, 36_000)
     }
 
     private var decoder: JSONDecoder {
