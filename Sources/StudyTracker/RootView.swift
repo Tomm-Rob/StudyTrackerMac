@@ -55,6 +55,9 @@ private struct SidebarView: View {
                 Label("Insights", systemImage: "chart.xyaxis.line")
                     .tag(SidebarSelection.insights)
 
+                Label("Weekly Review", systemImage: "calendar.badge.clock")
+                    .tag(SidebarSelection.weeklyReview)
+
                 Label("Pomodoro", systemImage: "timer")
                     .tag(SidebarSelection.pomodoro)
 
@@ -104,6 +107,8 @@ private struct DetailView: View {
                 DashboardView(classID: nil)
             case .insights:
                 InsightsView()
+            case .weeklyReview:
+                WeeklyReviewView()
             case .pomodoro:
                 PomodoroView()
             case .settings:

@@ -139,7 +139,8 @@ final class StudyStore: ObservableObject {
         startedAt: Date,
         duration: TimeInterval,
         source: StudySessionSource = .manual,
-        pomodoroIntervalCount: Int = 0
+        pomodoroIntervalCount: Int = 0,
+        focusRating: Int? = nil
     ) {
         guard duration > 0,
               data.classes.contains(where: { $0.id == classID && !$0.isArchived }) else { return }
@@ -149,7 +150,8 @@ final class StudyStore: ObservableObject {
                 startedAt: startedAt,
                 duration: duration,
                 source: source,
-                pomodoroIntervalCount: pomodoroIntervalCount
+                pomodoroIntervalCount: pomodoroIntervalCount,
+                focusRating: focusRating
             )
         )
     }

@@ -28,6 +28,7 @@ final class StudyDataMigrationTests: XCTestCase {
         XCTAssertFalse(data.classes[0].isArchived)
         XCTAssertEqual(data.sessions[0].source, .manual)
         XCTAssertEqual(data.sessions[0].pomodoroIntervalCount, 0)
+        XCTAssertNil(data.sessions[0].focusRating)
         XCTAssertEqual(data.pomodoroSettings, PomodoroSettings())
         XCTAssertTrue(data.goals.isEmpty)
 
@@ -57,6 +58,7 @@ final class StudyDataMigrationTests: XCTestCase {
         XCTAssertEqual(data.schemaVersion, 2)
         XCTAssertEqual(data.sessions[0].source, .manual)
         XCTAssertEqual(data.sessions[0].pomodoroIntervalCount, 0)
+        XCTAssertNil(data.sessions[0].focusRating)
         XCTAssertEqual(data.chartSettings.dailyBarColorHex, "#2563EB")
         XCTAssertEqual(data.pomodoroSettings, PomodoroSettings())
         XCTAssertTrue(data.goals.isEmpty)
@@ -80,6 +82,32 @@ final class StudyDataMigrationTests: XCTestCase {
         XCTAssertEqual(data.schemaVersion, StudyData.currentSchemaVersion)
     }
 
+    func testVersionFourSessionDecodesWithoutFocusRating() throws {
+        let classID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let json = """
+        {
+          "schemaVersion": 4,
+          "classes": [],
+          "sessions": [{
+            "id": "22222222-2222-2222-2222-222222222222",
+            "classID": "\(classID.uuidString)",
+            "startedAt": "2026-07-15T14:00:00Z",
+            "duration": 1800,
+            "source": "manual",
+            "pomodoroIntervalCount": 0
+          }],
+          "goals": [],
+          "chartSettings": {},
+          "pomodoroSettings": {}
+        }
+        """
+
+        let data = try decoder.decode(StudyData.self, from: Data(json.utf8))
+
+        XCTAssertEqual(data.schemaVersion, 4)
+        XCTAssertNil(data.sessions[0].focusRating)
+    }
+
     func testCurrentSessionEncodingUsesAnalyticsFieldsAndStartedAt() throws {
         let studyClass = StudyClass(name: "Chemistry", colorHex: "#DB2777")
         let session = StudySession(
@@ -87,7 +115,8 @@ final class StudyDataMigrationTests: XCTestCase {
             startedAt: Date(timeIntervalSince1970: 1_700_000_000),
             duration: 1_800,
             source: .pomodoro,
-            pomodoroIntervalCount: 1
+            pomodoroIntervalCount: 1,
+            focusRating: 4
         )
         let goal = StudyGoal(
             kind: .course,
@@ -110,6 +139,7 @@ final class StudyDataMigrationTests: XCTestCase {
         XCTAssertNil(encodedSession["date"])
         XCTAssertEqual(encodedSession["source"] as? String, "pomodoro")
         XCTAssertEqual(encodedSession["pomodoroIntervalCount"] as? Int, 1)
+        XCTAssertEqual(encodedSession["focusRating"] as? Int, 4)
         XCTAssertEqual(encodedGoal["kind"] as? String, "course")
         XCTAssertEqual(encodedGoal["targetDuration"] as? Double, 36_000)
     }

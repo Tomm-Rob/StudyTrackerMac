@@ -3,7 +3,7 @@ import SwiftUI
 import AppKit
 
 struct StudyData: Codable, Equatable {
-    static let currentSchemaVersion = 4
+    static let currentSchemaVersion = 5
 
     var schemaVersion: Int = currentSchemaVersion
     var classes: [StudyClass] = []
@@ -103,6 +103,7 @@ struct StudySession: Identifiable, Codable, Hashable {
     var duration: TimeInterval
     var source: StudySessionSource
     var pomodoroIntervalCount: Int
+    var focusRating: Int?
 
     init(
         id: UUID = UUID(),
@@ -110,7 +111,8 @@ struct StudySession: Identifiable, Codable, Hashable {
         startedAt: Date,
         duration: TimeInterval,
         source: StudySessionSource = .manual,
-        pomodoroIntervalCount: Int = 0
+        pomodoroIntervalCount: Int = 0,
+        focusRating: Int? = nil
     ) {
         self.id = id
         self.classID = classID
@@ -118,6 +120,7 @@ struct StudySession: Identifiable, Codable, Hashable {
         self.duration = duration
         self.source = source
         self.pomodoroIntervalCount = max(0, pomodoroIntervalCount)
+        self.focusRating = Self.normalizedFocusRating(focusRating)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -128,6 +131,7 @@ struct StudySession: Identifiable, Codable, Hashable {
         case duration
         case source
         case pomodoroIntervalCount
+        case focusRating
     }
 
     init(from decoder: Decoder) throws {
@@ -142,6 +146,9 @@ struct StudySession: Identifiable, Codable, Hashable {
             0,
             try container.decodeIfPresent(Int.self, forKey: .pomodoroIntervalCount) ?? 0
         )
+        focusRating = Self.normalizedFocusRating(
+            try container.decodeIfPresent(Int.self, forKey: .focusRating)
+        )
     }
 
     func encode(to encoder: Encoder) throws {
@@ -152,6 +159,12 @@ struct StudySession: Identifiable, Codable, Hashable {
         try container.encode(duration, forKey: .duration)
         try container.encode(source, forKey: .source)
         try container.encode(pomodoroIntervalCount, forKey: .pomodoroIntervalCount)
+        try container.encodeIfPresent(focusRating, forKey: .focusRating)
+    }
+
+    private static func normalizedFocusRating(_ rating: Int?) -> Int? {
+        guard let rating, (1...5).contains(rating) else { return nil }
+        return rating
     }
 }
 
@@ -226,6 +239,7 @@ struct ClassTotal: Identifiable {
 enum SidebarSelection: Hashable {
     case dashboard
     case insights
+    case weeklyReview
     case pomodoro
     case settings
     case studyClass(UUID)
