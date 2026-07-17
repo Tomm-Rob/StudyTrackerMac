@@ -52,6 +52,9 @@ private struct SidebarView: View {
                 Label("Dashboard", systemImage: "chart.bar.xaxis")
                     .tag(SidebarSelection.dashboard)
 
+                Label("Insights", systemImage: "chart.xyaxis.line")
+                    .tag(SidebarSelection.insights)
+
                 Label("Pomodoro", systemImage: "timer")
                     .tag(SidebarSelection.pomodoro)
 
@@ -99,6 +102,8 @@ private struct DetailView: View {
             switch selection {
             case .dashboard:
                 DashboardView(classID: nil)
+            case .insights:
+                InsightsView()
             case .pomodoro:
                 PomodoroView()
             case .settings:

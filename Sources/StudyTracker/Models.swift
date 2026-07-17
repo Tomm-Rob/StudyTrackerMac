@@ -225,6 +225,7 @@ struct ClassTotal: Identifiable {
 
 enum SidebarSelection: Hashable {
     case dashboard
+    case insights
     case pomodoro
     case settings
     case studyClass(UUID)
