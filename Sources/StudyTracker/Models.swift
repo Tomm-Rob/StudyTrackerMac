@@ -3,7 +3,7 @@ import SwiftUI
 import AppKit
 
 struct StudyData: Codable, Equatable {
-    static let currentSchemaVersion = 5
+    static let currentSchemaVersion = 6
 
     var schemaVersion: Int = currentSchemaVersion
     var classes: [StudyClass] = []
@@ -11,6 +11,7 @@ struct StudyData: Codable, Equatable {
     var goals: [StudyGoal] = []
     var chartSettings = ChartSettings()
     var pomodoroSettings = PomodoroSettings()
+    var dashboardLayout = DashboardLayout()
 
     init(
         schemaVersion: Int = currentSchemaVersion,
@@ -18,7 +19,8 @@ struct StudyData: Codable, Equatable {
         sessions: [StudySession] = [],
         goals: [StudyGoal] = [],
         chartSettings: ChartSettings = ChartSettings(),
-        pomodoroSettings: PomodoroSettings = PomodoroSettings()
+        pomodoroSettings: PomodoroSettings = PomodoroSettings(),
+        dashboardLayout: DashboardLayout = DashboardLayout()
     ) {
         self.schemaVersion = schemaVersion
         self.classes = classes
@@ -26,6 +28,7 @@ struct StudyData: Codable, Equatable {
         self.goals = goals
         self.chartSettings = chartSettings
         self.pomodoroSettings = pomodoroSettings
+        self.dashboardLayout = dashboardLayout
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -35,6 +38,7 @@ struct StudyData: Codable, Equatable {
         case goals
         case chartSettings
         case pomodoroSettings
+        case dashboardLayout
     }
 
     init(from decoder: Decoder) throws {
@@ -45,6 +49,11 @@ struct StudyData: Codable, Equatable {
         goals = try container.decodeIfPresent([StudyGoal].self, forKey: .goals) ?? []
         chartSettings = try container.decodeIfPresent(ChartSettings.self, forKey: .chartSettings) ?? ChartSettings()
         pomodoroSettings = try container.decodeIfPresent(PomodoroSettings.self, forKey: .pomodoroSettings) ?? PomodoroSettings()
+        let decodedDashboardLayout = try container.decodeIfPresent(
+            DashboardLayout.self,
+            forKey: .dashboardLayout
+        ) ?? DashboardLayout()
+        dashboardLayout = DashboardLayoutService().normalized(decodedDashboardLayout)
     }
 
     mutating func migrateToCurrentSchema(legacyPomodoroSettings: PomodoroSettings?) {
@@ -53,6 +62,7 @@ struct StudyData: Codable, Equatable {
         }
 
         pomodoroSettings.normalize()
+        dashboardLayout = DashboardLayoutService().normalized(dashboardLayout)
         schemaVersion = Self.currentSchemaVersion
     }
 }

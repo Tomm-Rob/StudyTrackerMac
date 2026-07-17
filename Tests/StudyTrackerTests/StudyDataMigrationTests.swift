@@ -31,6 +31,7 @@ final class StudyDataMigrationTests: XCTestCase {
         XCTAssertNil(data.sessions[0].focusRating)
         XCTAssertEqual(data.pomodoroSettings, PomodoroSettings())
         XCTAssertTrue(data.goals.isEmpty)
+        XCTAssertEqual(data.dashboardLayout, DashboardLayout())
 
         data.migrateToCurrentSchema(legacyPomodoroSettings: nil)
         XCTAssertEqual(data.schemaVersion, StudyData.currentSchemaVersion)
@@ -62,6 +63,7 @@ final class StudyDataMigrationTests: XCTestCase {
         XCTAssertEqual(data.chartSettings.dailyBarColorHex, "#2563EB")
         XCTAssertEqual(data.pomodoroSettings, PomodoroSettings())
         XCTAssertTrue(data.goals.isEmpty)
+        XCTAssertEqual(data.dashboardLayout, DashboardLayout())
     }
 
     func testVersionThreeDataDecodesWithEmptyGoals() throws {
@@ -106,6 +108,28 @@ final class StudyDataMigrationTests: XCTestCase {
 
         XCTAssertEqual(data.schemaVersion, 4)
         XCTAssertNil(data.sessions[0].focusRating)
+    }
+
+    func testVersionFiveDataDecodesWithDefaultDashboardLayout() throws {
+        let json = """
+        {
+          "schemaVersion": 5,
+          "classes": [],
+          "sessions": [],
+          "goals": [],
+          "chartSettings": {},
+          "pomodoroSettings": {}
+        }
+        """
+
+        var data = try decoder.decode(StudyData.self, from: Data(json.utf8))
+
+        XCTAssertEqual(data.schemaVersion, 5)
+        XCTAssertEqual(data.dashboardLayout, DashboardLayout())
+
+        data.migrateToCurrentSchema(legacyPomodoroSettings: nil)
+        XCTAssertEqual(data.schemaVersion, StudyData.currentSchemaVersion)
+        XCTAssertEqual(data.dashboardLayout, DashboardLayout())
     }
 
     func testCurrentSessionEncodingUsesAnalyticsFieldsAndStartedAt() throws {
