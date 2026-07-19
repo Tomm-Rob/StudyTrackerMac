@@ -8,11 +8,21 @@ struct StudySessionTimer: View {
     @State private var elapsedSeconds = 0
     @State private var isRunning = false
     @State private var sessionStartedAt: Date?
+    @State private var pendingCompletion: SessionCompletionDraft?
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var effectiveClassID: UUID? {
-        classID ?? selectedClassID ?? store.data.classes.first?.id
+        if let classID {
+            return store.activeClasses.contains(where: { $0.id == classID }) ? classID : nil
+        }
+
+        if let selectedClassID,
+           store.activeClasses.contains(where: { $0.id == selectedClassID }) {
+            return selectedClassID
+        }
+
+        return store.activeClasses.first?.id
     }
 
     var body: some View {
@@ -36,11 +46,26 @@ struct StudySessionTimer: View {
         .padding(12)
         .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .onAppear {
-            selectedClassID = selectedClassID ?? store.data.classes.first?.id
+            selectedClassID = effectiveClassID
         }
         .onReceive(timer) { _ in
             guard isRunning else { return }
             elapsedSeconds += 1
+        }
+        .onChange(of: store.activeClasses.map(\.id)) { _, _ in
+            if classID == nil {
+                selectedClassID = effectiveClassID
+            }
+        }
+        .sheet(item: $pendingCompletion) { draft in
+            SessionCompletionSheet(
+                draft: draft,
+                cancel: { pendingCompletion = nil },
+                saved: {
+                    pendingCompletion = nil
+                    resetTimer()
+                }
+            )
         }
     }
 
@@ -67,7 +92,7 @@ struct StudySessionTimer: View {
                 get: { effectiveClassID },
                 set: { selectedClassID = $0 }
             )) {
-                ForEach(store.data.classes) { studyClass in
+                ForEach(store.activeClasses) { studyClass in
                     Text(studyClass.name).tag(Optional(studyClass.id))
                 }
             }
@@ -122,12 +147,131 @@ struct StudySessionTimer: View {
 
     private func logTimer() {
         guard let effectiveClassID, elapsedSeconds > 0 else { return }
-        store.addSession(
+        isRunning = false
+        pendingCompletion = SessionCompletionDraft(
             classID: effectiveClassID,
-            date: sessionStartedAt ?? Date(),
-            duration: TimeInterval(elapsedSeconds)
+            startedAt: sessionStartedAt ?? Date(),
+            endedAt: Date(),
+            duration: TimeInterval(elapsedSeconds),
+            source: .timer,
+            pomodoroIntervalCount: 0,
+            completionState: .completedNormally
         )
-        resetTimer()
+    }
+}
+
+struct SessionCompletionDraft: Identifiable {
+    let id = UUID()
+    let classID: UUID
+    let startedAt: Date
+    let endedAt: Date
+    let duration: TimeInterval
+    let source: StudySessionSource
+    let pomodoroIntervalCount: Int
+    let completionState: SessionCompletionState
+}
+
+struct SessionCompletionSheet: View {
+    @EnvironmentObject private var store: StudyStore
+
+    let draft: SessionCompletionDraft
+    let cancel: () -> Void
+    let saved: () -> Void
+
+    @State private var classID: UUID
+    @State private var topic = ""
+    @State private var focusRating: Int?
+    @State private var energyRating: Int?
+    @State private var distractionRating: Int?
+    @State private var completionState: SessionCompletionState
+
+    init(
+        draft: SessionCompletionDraft,
+        cancel: @escaping () -> Void,
+        saved: @escaping () -> Void
+    ) {
+        self.draft = draft
+        self.cancel = cancel
+        self.saved = saved
+        _classID = State(initialValue: draft.classID)
+        _completionState = State(initialValue: draft.completionState)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Complete Study Session")
+                        .font(.title2.weight(.semibold))
+                    Text(draft.duration.compactDuration)
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.tint)
+            }
+
+            Picker("Class", selection: $classID) {
+                ForEach(selectableClasses) { studyClass in
+                    Text(studyClass.name).tag(studyClass.id)
+                }
+            }
+
+            TextField("Topic (optional)", text: $topic)
+
+            Picker("Result", selection: $completionState) {
+                Text("Completed Normally").tag(SessionCompletionState.completedNormally)
+                Text("Stopped Early").tag(SessionCompletionState.stoppedEarly)
+            }
+            .pickerStyle(.segmented)
+
+            HStack(alignment: .top, spacing: 12) {
+                SessionRatingControl(title: "Focus", rating: $focusRating)
+                SessionRatingControl(title: "Energy", rating: $energyRating)
+                SessionRatingControl(title: "Distractions", rating: $distractionRating)
+            }
+
+            HStack {
+                Button("Cancel", action: cancel)
+                Spacer()
+                Button("Save Without Ratings") {
+                    save(includeRatings: false)
+                }
+                Button("Save Session") {
+                    save(includeRatings: true)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(22)
+        .frame(width: 500)
+    }
+
+    private var selectableClasses: [StudyClass] {
+        guard let current = store.data.classes.first(where: { $0.id == draft.classID }),
+              current.isArchived else {
+            return store.activeClasses
+        }
+        return [current] + store.activeClasses
+    }
+
+    private func save(includeRatings: Bool) {
+        store.addSession(
+            classID: classID,
+            startedAt: draft.startedAt,
+            endedAt: draft.endedAt,
+            duration: draft.duration,
+            source: draft.source,
+            pomodoroIntervalCount: draft.pomodoroIntervalCount,
+            focusRating: includeRatings ? focusRating : nil,
+            energyRating: includeRatings ? energyRating : nil,
+            distractionRating: includeRatings ? distractionRating : nil,
+            topic: topic,
+            completionState: completionState
+        )
+        saved()
     }
 }
 
@@ -139,9 +283,19 @@ struct SessionEditor: View {
     @State private var date = Date()
     @State private var hours = 1
     @State private var minutes = 0
+    @State private var focusRating: Int?
 
     private var effectiveClassID: UUID? {
-        classID ?? selectedClassID ?? store.data.classes.first?.id
+        if let classID {
+            return store.activeClasses.contains(where: { $0.id == classID }) ? classID : nil
+        }
+
+        if let selectedClassID,
+           store.activeClasses.contains(where: { $0.id == selectedClassID }) {
+            return selectedClassID
+        }
+
+        return store.activeClasses.first?.id
     }
 
     var body: some View {
@@ -154,7 +308,7 @@ struct SessionEditor: View {
                 verticalEditorControls
             }
 
-            if store.data.classes.isEmpty {
+            if store.activeClasses.isEmpty {
                 Text("Add a class first, then study sessions can be logged here.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -163,8 +317,11 @@ struct SessionEditor: View {
         .padding(12)
         .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .onAppear {
-            if selectedClassID == nil {
-                selectedClassID = store.data.classes.first?.id
+            selectedClassID = effectiveClassID
+        }
+        .onChange(of: store.activeClasses.map(\.id)) { _, _ in
+            if classID == nil {
+                selectedClassID = effectiveClassID
             }
         }
     }
@@ -174,6 +331,7 @@ struct SessionEditor: View {
             classControl
             dateControl
             durationControls
+            FocusRatingControl(rating: $focusRating)
             Spacer(minLength: 0)
             addButton
         }
@@ -185,6 +343,7 @@ struct SessionEditor: View {
             dateControl
             HStack(spacing: 10) {
                 durationControls
+                FocusRatingControl(rating: $focusRating)
                 Spacer()
                 addButton
             }
@@ -202,7 +361,7 @@ struct SessionEditor: View {
                     get: { effectiveClassID },
                     set: { selectedClassID = $0 }
                 )) {
-                    ForEach(store.data.classes) { studyClass in
+                    ForEach(store.activeClasses) { studyClass in
                         Text(studyClass.name).tag(Optional(studyClass.id))
                     }
                 }
@@ -250,7 +409,13 @@ struct SessionEditor: View {
     private func addSession() {
         guard let effectiveClassID else { return }
         let duration = TimeInterval((hours * 60 + minutes) * 60)
-        store.addSession(classID: effectiveClassID, date: date, duration: duration)
+        store.addSession(
+            classID: effectiveClassID,
+            startedAt: date,
+            duration: duration,
+            focusRating: focusRating
+        )
+        focusRating = nil
     }
 }
 
@@ -301,9 +466,15 @@ private struct SessionRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(store.className(for: session.classID))
                     .font(.body.weight(.medium))
-                Text(session.date.formatted(date: .abbreviated, time: .shortened))
+                Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                if let topic = session.topic {
+                    Text(topic)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer()
@@ -311,6 +482,12 @@ private struct SessionRow: View {
             Text(session.duration.compactDuration)
                 .font(.body.weight(.medium))
                 .monospacedDigit()
+
+            if let focusRating = session.focusRating {
+                Label("\(focusRating)/5", systemImage: "star.fill")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
 
             Button {
                 editingSession = session
@@ -344,6 +521,15 @@ struct SessionEditSheet: View {
     @State private var hours: Int
     @State private var minutes: Int
 
+    private var selectableClasses: [StudyClass] {
+        guard let currentClass = store.data.classes.first(where: { $0.id == session.classID }),
+              currentClass.isArchived else {
+            return store.activeClasses
+        }
+
+        return [currentClass] + store.activeClasses
+    }
+
     init(session: StudySession) {
         _session = State(initialValue: session)
         let totalMinutes = Int(session.duration / 60)
@@ -357,12 +543,21 @@ struct SessionEditSheet: View {
                 .font(.title2.weight(.semibold))
 
             Picker("Class", selection: $session.classID) {
-                ForEach(store.data.classes) { studyClass in
-                    Text(studyClass.name).tag(studyClass.id)
+                ForEach(selectableClasses) { studyClass in
+                    Text(studyClass.name + (studyClass.isArchived ? " (Archived)" : "")).tag(studyClass.id)
                 }
             }
 
-            DatePicker("Date", selection: $session.date)
+            DatePicker("Started", selection: $session.startedAt)
+
+            HStack {
+                Text("Ends")
+                Spacer()
+                Text(session.startedAt.addingTimeInterval(
+                    TimeInterval((hours * 60 + minutes) * 60)
+                ).formatted(date: .abbreviated, time: .shortened))
+                    .foregroundStyle(.secondary)
+            }
 
             Stepper(value: $hours, in: 0...24) {
                 LabeledValue(title: "Hours", value: "\(hours)")
@@ -370,6 +565,26 @@ struct SessionEditSheet: View {
 
             Stepper(value: $minutes, in: 0...59, step: 5) {
                 LabeledValue(title: "Minutes", value: "\(minutes)")
+            }
+
+            TextField(
+                "Topic (optional)",
+                text: Binding(
+                    get: { session.topic ?? "" },
+                    set: { session.topic = $0.isEmpty ? nil : $0 }
+                )
+            )
+
+            HStack(alignment: .top, spacing: 10) {
+                FocusRatingControl(rating: $session.focusRating)
+                SessionRatingControl(title: "Energy", rating: $session.energyRating)
+                SessionRatingControl(title: "Distractions", rating: $session.distractionRating)
+            }
+
+            Picker("Completion", selection: $session.completionState) {
+                ForEach(SessionCompletionState.allCases) { state in
+                    Text(state.title).tag(state)
+                }
             }
 
             HStack {
@@ -380,6 +595,7 @@ struct SessionEditSheet: View {
 
                 Button("Save") {
                     session.duration = TimeInterval((hours * 60 + minutes) * 60)
+                    session.endedAt = session.startedAt.addingTimeInterval(session.duration)
                     store.updateSession(session)
                     dismiss()
                 }
@@ -388,7 +604,68 @@ struct SessionEditSheet: View {
             }
         }
         .padding(24)
-        .frame(width: 420)
+        .frame(width: 470)
+    }
+}
+
+struct FocusRatingControl: View {
+    @Binding var rating: Int?
+
+    var body: some View {
+        SessionRatingControl(title: "Focus", rating: $rating)
+    }
+}
+
+struct SessionRatingControl: View {
+    let title: String
+    @Binding var rating: Int?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Picker(title, selection: $rating) {
+                Text("Not rated").tag(Int?.none)
+                Divider()
+                ForEach(1...5, id: \.self) { value in
+                    Text("\(value) - \(label(for: value))").tag(Optional(value))
+                }
+            }
+            .labelsHidden()
+            .frame(width: 130)
+        }
+    }
+
+    private func label(for value: Int) -> String {
+        if title == "Distractions" {
+            switch value {
+            case 1: return "None"
+            case 2: return "Few"
+            case 3: return "Some"
+            case 4: return "Frequent"
+            default: return "Constant"
+            }
+        }
+
+        switch value {
+        case 1: return "Low"
+        case 2: return "Fair"
+        case 3: return "Good"
+        case 4: return "Strong"
+        default: return "Excellent"
+        }
+    }
+}
+
+private extension SessionCompletionState {
+    var title: String {
+        switch self {
+        case .completedNormally: "Completed Normally"
+        case .stoppedEarly: "Stopped Early"
+        case .manuallyEntered: "Manually Entered"
+        }
     }
 }
 

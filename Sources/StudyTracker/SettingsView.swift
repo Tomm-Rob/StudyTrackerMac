@@ -3,70 +3,105 @@ import AppKit
 
 struct SettingsView: View {
     @EnvironmentObject private var store: StudyStore
+    @AppStorage(AppearanceMode.storageKey) private var appearanceRawValue =
+        AppearanceMode.system.rawValue
+
+    private var appearanceSelection: Binding<AppearanceMode> {
+        Binding(
+            get: { AppearanceMode(rawValue: appearanceRawValue) ?? .system },
+            set: { appearanceRawValue = $0.rawValue }
+        )
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Settings")
-                    .font(.system(size: 30, weight: .semibold, design: .rounded))
-                Text("Choose where your local study data is saved and tune chart colors.")
-                    .foregroundStyle(.secondary)
-            }
-
+        ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Data Location")
-                    .font(.headline)
-
-                Text(store.dataFileURL.path)
-                    .font(.callout.monospaced())
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-                    .lineLimit(2)
-
-                HStack {
-                    Button {
-                        chooseSaveDirectory()
-                    } label: {
-                        Label("Choose Folder", systemImage: "folder")
-                    }
-
-                    Button {
-                        store.resetSaveDirectory()
-                    } label: {
-                        Label("Use Default", systemImage: "arrow.uturn.backward")
-                    }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Settings")
+                        .font(.system(size: 30, weight: .semibold, design: .rounded))
+                    Text("Adjust appearance, local data storage, and chart colors.")
+                        .foregroundStyle(.secondary)
                 }
 
-                if let error = store.lastError {
-                    Text(error)
-                        .foregroundStyle(.red)
+                appearanceSettings
+
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Data Location")
+                        .font(.headline)
+
+                    Text(store.dataFileURL.path)
+                        .font(.callout.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .lineLimit(2)
+
+                    HStack {
+                        Button {
+                            chooseSaveDirectory()
+                        } label: {
+                            Label("Choose Folder", systemImage: "folder")
+                        }
+
+                        Button {
+                            store.resetSaveDirectory()
+                        } label: {
+                            Label("Use Default", systemImage: "arrow.uturn.backward")
+                        }
+                    }
+                    .disabled(store.isPersistenceLocked)
+
+                    if let error = store.lastError {
+                        Text(error)
+                            .foregroundStyle(.red)
+                    }
                 }
-            }
-            .padding(18)
-            .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(16)
+                .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Chart Colors")
-                    .font(.headline)
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Chart Colors")
+                        .font(.headline)
 
-                ColorPicker(
-                    "Daily bar graph color",
-                    selection: Binding(
-                        get: { Color(hex: store.data.chartSettings.dailyBarColorHex) },
-                        set: { store.data.chartSettings.dailyBarColorHex = $0.hexString() ?? store.data.chartSettings.dailyBarColorHex }
+                    ColorPicker(
+                        "Daily bar graph color",
+                        selection: Binding(
+                            get: { Color(hex: store.data.chartSettings.dailyBarColorHex) },
+                            set: { store.data.chartSettings.dailyBarColorHex = $0.hexString() ?? store.data.chartSettings.dailyBarColorHex }
+                        )
                     )
-                )
+                    .disabled(store.isPersistenceLocked)
 
-                Text("The circle graph uses each class color. Change a class color from that class page.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    Text("The circle graph uses each class color. Change a class color from that class page.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(16)
+                .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                Spacer(minLength: 0)
             }
-            .padding(18)
-            .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-            Spacer()
+            .padding(20)
         }
-        .padding(26)
+    }
+
+    private var appearanceSettings: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Appearance")
+                .font(.headline)
+
+            Picker("Appearance", selection: appearanceSelection) {
+                ForEach(AppearanceMode.allCases) { mode in
+                    Label(mode.title, systemImage: mode.systemImage)
+                        .tag(mode)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 440)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private func chooseSaveDirectory() {
