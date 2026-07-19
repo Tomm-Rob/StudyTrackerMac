@@ -15,7 +15,8 @@ final class StudyStore: ObservableObject {
     @Published var lastError: String?
     @Published private(set) var isPersistenceLocked = false
 
-    private static let dataFileName = "study-tracker-data.json"
+    private static let dataFileName = "study-tracker-data-v2.json"
+    private static let legacyDataFileName = "study-tracker-data.json"
     private static let directoryKey = "StudyTracker.SaveDirectory"
     private static let legacyPomodoroKeys = [
         "Pomodoro.FocusMinutes",
@@ -32,15 +33,23 @@ final class StudyStore: ObservableObject {
         data.goals.filter { !$0.isArchived }
     }
 
-    init() {
-        let directory = Self.initialSaveDirectory()
+    init(saveDirectory: URL? = nil) {
+        let directory = saveDirectory ?? Self.initialSaveDirectory()
         let fileURL = directory.appendingPathComponent(Self.dataFileName)
-        let loadResult = Self.load(from: fileURL)
+        var preparationError: String?
+
+        do {
+            try Self.importLegacyDataIfNeeded(into: fileURL)
+        } catch {
+            preparationError = "Could not protect your existing study data, so no save file was changed: \(error.localizedDescription)"
+        }
+
+        let loadResult = preparationError == nil ? Self.load(from: fileURL) : .missing
         var loadedData = StudyData()
         var originalData: Data?
         var originalSchemaVersion: Int?
-        var persistenceLocked = false
-        var initialError: String?
+        var persistenceLocked = preparationError != nil
+        var initialError = preparationError
 
         switch loadResult {
         case .missing:
@@ -315,6 +324,22 @@ final class StudyStore: ObservableObject {
         return supportDirectory.appendingPathComponent("Study Tracker", isDirectory: true)
     }
 
+    private static func importLegacyDataIfNeeded(into fileURL: URL) throws {
+        let fileManager = FileManager.default
+        guard !fileManager.fileExists(atPath: fileURL.path) else { return }
+
+        let legacyURL = fileURL.deletingLastPathComponent()
+            .appendingPathComponent(legacyDataFileName)
+        guard fileManager.fileExists(atPath: legacyURL.path) else { return }
+
+        try fileManager.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let legacyData = try Data(contentsOf: legacyURL)
+        try legacyData.write(to: fileURL, options: [.atomic])
+    }
+
     private static func load(from url: URL) -> LoadResult {
         guard FileManager.default.fileExists(atPath: url.path) else {
             return .missing
@@ -337,7 +362,7 @@ final class StudyStore: ObservableObject {
 
     private static func backUp(_ data: Data, schemaVersion: Int, beside fileURL: URL) throws {
         let backupURL = fileURL.deletingLastPathComponent()
-            .appendingPathComponent("study-tracker-data-v\(schemaVersion)-backup.json")
+            .appendingPathComponent("study-tracker-data-v2-schema\(schemaVersion)-backup.json")
 
         guard !FileManager.default.fileExists(atPath: backupURL.path) else { return }
         try data.write(to: backupURL, options: [.atomic])
