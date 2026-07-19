@@ -144,8 +144,8 @@ enum DashboardCardRegistry {
             title: "Time by Class",
             subtitle: "Total study share by class",
             systemImage: "chart.pie",
-            defaultSize: .large,
-            supportedSizes: [.large, .wide, .extraLarge]
+            defaultSize: .small,
+            supportedSizes: [.small, .medium, .large, .wide, .extraLarge]
         ),
         DashboardCardDefinition(
             id: "class-overview",
@@ -160,8 +160,8 @@ enum DashboardCardRegistry {
             title: "Leaderboard",
             subtitle: "Classes ranked by study time",
             systemImage: "list.number",
-            defaultSize: .large,
-            supportedSizes: [.large, .wide, .extraLarge]
+            defaultSize: .small,
+            supportedSizes: [.small, .medium, .large, .wide, .extraLarge]
         ),
         DashboardCardDefinition(
             id: "quick-log",
@@ -185,11 +185,43 @@ enum DashboardCardRegistry {
             subtitle: "Deterministic patterns from your data",
             systemImage: "lightbulb",
             defaultSize: .wide,
-            supportedSizes: [.medium, .large, .wide, .extraLarge]
+            supportedSizes: [.small, .medium, .large, .wide, .extraLarge]
+        ),
+        DashboardCardDefinition(
+            id: "goals",
+            title: "Goals",
+            subtitle: "Current goal progress and pacing",
+            systemImage: "target",
+            defaultSize: .large,
+            supportedSizes: [.small, .large, .wide, .extraLarge]
         )
     ]
 
     static var defaultLayoutCards: [DashboardCardInstance] {
+        let visibleCards = [
+            defaultCard("total-time", size: .small),
+            defaultCard("daily-study", size: .large),
+            defaultCard("class-breakdown", size: .small),
+            defaultCard("leaderboard", size: .small),
+            defaultCard("local-insights", size: .small),
+            defaultCard("goals", size: .small)
+        ]
+        let visibleKindIDs = Set(visibleCards.map(\.kindID))
+        let hiddenCards = definitions
+            .filter { !visibleKindIDs.contains($0.id) }
+            .map {
+                DashboardCardInstance(
+                    id: $0.stableInstanceID,
+                    kindID: $0.id,
+                    size: $0.defaultSize,
+                    isVisible: false
+                )
+            }
+
+        return visibleCards + hiddenCards
+    }
+
+    static var previousDefaultLayoutCards: [DashboardCardInstance] {
         definitions.map {
             DashboardCardInstance(
                 id: $0.stableInstanceID,
@@ -198,6 +230,30 @@ enum DashboardCardRegistry {
                 isVisible: $0.defaultVisible
             )
         }
+    }
+
+    static var legacyDefaultLayoutCards: [DashboardCardInstance] {
+        definitions.map {
+            DashboardCardInstance(
+                id: $0.stableInstanceID,
+                kindID: $0.id,
+                size: ["class-breakdown", "leaderboard"].contains($0.id)
+                    ? .large
+                    : $0.defaultSize,
+                isVisible: $0.defaultVisible
+            )
+        }
+    }
+
+    private static func defaultCard(
+        _ kindID: String,
+        size: DashboardCardSize
+    ) -> DashboardCardInstance {
+        DashboardCardInstance(
+            id: "dashboard.\(kindID)",
+            kindID: kindID,
+            size: size
+        )
     }
 
     static func definition(for kindID: String) -> DashboardCardDefinition? {
@@ -214,6 +270,23 @@ struct DashboardGridPlacement: Equatable {
 }
 
 struct DashboardLayoutService {
+    func recommendedColumnCount(forAvailableWidth width: CGFloat) -> Int {
+        if width >= 540 { return 3 }
+        if width >= 360 { return 2 }
+        return 1
+    }
+
+    func applyingUpdatedDefaults(to layout: DashboardLayout) -> DashboardLayout {
+        let knownPreviousDefaults = [
+            DashboardCardRegistry.previousDefaultLayoutCards,
+            DashboardCardRegistry.legacyDefaultLayoutCards
+        ]
+        guard knownPreviousDefaults.contains(layout.cards) else {
+            return layout
+        }
+        return DashboardLayout()
+    }
+
     func normalized(_ layout: DashboardLayout) -> DashboardLayout {
         var normalizedCards: [DashboardCardInstance] = []
         var seenIDs = Set<String>()

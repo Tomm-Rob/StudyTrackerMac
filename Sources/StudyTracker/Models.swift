@@ -3,7 +3,7 @@ import SwiftUI
 import AppKit
 
 struct StudyData: Codable, Equatable {
-    static let currentSchemaVersion = 6
+    static let currentSchemaVersion = 8
 
     var schemaVersion: Int = currentSchemaVersion
     var classes: [StudyClass] = []
@@ -71,6 +71,16 @@ struct StudyClass: Identifiable, Codable, Hashable {
     var id: UUID
     var name: String
     var colorHex: String
+    var courseCode: String?
+    var creditValue: Double?
+    var startDate: Date?
+    var targetCompletionDate: Date?
+    var plannedStudyHours: Double?
+    var status: CourseStatus
+    var completionDate: Date?
+    var progressPercentage: Double
+    var weeklyStudyHoursTarget: Double?
+    var priority: CoursePriority?
     var isArchived: Bool
     var archivedAt: Date?
 
@@ -78,12 +88,32 @@ struct StudyClass: Identifiable, Codable, Hashable {
         id: UUID = UUID(),
         name: String,
         colorHex: String,
+        courseCode: String? = nil,
+        creditValue: Double? = nil,
+        startDate: Date? = nil,
+        targetCompletionDate: Date? = nil,
+        plannedStudyHours: Double? = nil,
+        status: CourseStatus = .active,
+        completionDate: Date? = nil,
+        progressPercentage: Double = 0,
+        weeklyStudyHoursTarget: Double? = nil,
+        priority: CoursePriority? = nil,
         isArchived: Bool = false,
         archivedAt: Date? = nil
     ) {
         self.id = id
         self.name = name
         self.colorHex = colorHex
+        self.courseCode = Self.normalizedCode(courseCode)
+        self.creditValue = Self.normalizedOptionalNumber(creditValue)
+        self.startDate = startDate
+        self.targetCompletionDate = targetCompletionDate
+        self.plannedStudyHours = Self.normalizedOptionalNumber(plannedStudyHours)
+        self.status = status
+        self.completionDate = completionDate
+        self.progressPercentage = Self.normalizedProgress(progressPercentage)
+        self.weeklyStudyHoursTarget = Self.normalizedOptionalNumber(weeklyStudyHoursTarget)
+        self.priority = priority
         self.isArchived = isArchived
         self.archivedAt = archivedAt
     }
@@ -92,6 +122,16 @@ struct StudyClass: Identifiable, Codable, Hashable {
         case id
         case name
         case colorHex
+        case courseCode
+        case creditValue
+        case startDate
+        case targetCompletionDate
+        case plannedStudyHours
+        case status
+        case completionDate
+        case progressPercentage
+        case weeklyStudyHoursTarget
+        case priority
         case isArchived
         case archivedAt
     }
@@ -101,47 +141,123 @@ struct StudyClass: Identifiable, Codable, Hashable {
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         name = try container.decode(String.self, forKey: .name)
         colorHex = try container.decodeIfPresent(String.self, forKey: .colorHex) ?? "#6B7280"
+        courseCode = Self.normalizedCode(
+            try container.decodeIfPresent(String.self, forKey: .courseCode)
+        )
+        creditValue = Self.normalizedOptionalNumber(
+            try container.decodeIfPresent(Double.self, forKey: .creditValue)
+        )
+        startDate = try container.decodeIfPresent(Date.self, forKey: .startDate)
+        targetCompletionDate = try container.decodeIfPresent(Date.self, forKey: .targetCompletionDate)
+        plannedStudyHours = Self.normalizedOptionalNumber(
+            try container.decodeIfPresent(Double.self, forKey: .plannedStudyHours)
+        )
+        status = try container.decodeIfPresent(CourseStatus.self, forKey: .status) ?? .active
+        completionDate = try container.decodeIfPresent(Date.self, forKey: .completionDate)
+        progressPercentage = Self.normalizedProgress(
+            try container.decodeIfPresent(Double.self, forKey: .progressPercentage) ?? 0
+        )
+        weeklyStudyHoursTarget = Self.normalizedOptionalNumber(
+            try container.decodeIfPresent(Double.self, forKey: .weeklyStudyHoursTarget)
+        )
+        priority = try container.decodeIfPresent(CoursePriority.self, forKey: .priority)
         isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
         archivedAt = try container.decodeIfPresent(Date.self, forKey: .archivedAt)
     }
+
+    private static func normalizedCode(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func normalizedOptionalNumber(_ value: Double?) -> Double? {
+        guard let value, value.isFinite, value >= 0 else { return nil }
+        return value
+    }
+
+    private static func normalizedProgress(_ value: Double) -> Double {
+        guard value.isFinite else { return 0 }
+        return min(max(value, 0), 100)
+    }
+}
+
+enum CourseStatus: String, Codable, CaseIterable, Hashable, Identifiable {
+    case notStarted
+    case active
+    case paused
+    case completed
+
+    var id: String { rawValue }
+}
+
+enum CoursePriority: String, Codable, CaseIterable, Hashable, Identifiable {
+    case low
+    case normal
+    case high
+    case critical
+
+    var id: String { rawValue }
 }
 
 struct StudySession: Identifiable, Codable, Hashable {
     var id: UUID
     var classID: UUID
     var startedAt: Date
+    var endedAt: Date
     var duration: TimeInterval
     var source: StudySessionSource
     var pomodoroIntervalCount: Int
     var focusRating: Int?
+    var energyRating: Int?
+    var distractionRating: Int?
+    var topic: String?
+    var completionState: SessionCompletionState
 
     init(
         id: UUID = UUID(),
         classID: UUID,
         startedAt: Date,
+        endedAt: Date? = nil,
         duration: TimeInterval,
         source: StudySessionSource = .manual,
         pomodoroIntervalCount: Int = 0,
-        focusRating: Int? = nil
+        focusRating: Int? = nil,
+        energyRating: Int? = nil,
+        distractionRating: Int? = nil,
+        topic: String? = nil,
+        completionState: SessionCompletionState? = nil
     ) {
         self.id = id
         self.classID = classID
         self.startedAt = startedAt
         self.duration = duration
+        let calculatedEnd = startedAt.addingTimeInterval(max(0, duration))
+        self.endedAt = endedAt.map { max($0, startedAt) } ?? calculatedEnd
         self.source = source
         self.pomodoroIntervalCount = max(0, pomodoroIntervalCount)
-        self.focusRating = Self.normalizedFocusRating(focusRating)
+        self.focusRating = Self.normalizedRating(focusRating)
+        self.energyRating = Self.normalizedRating(energyRating)
+        self.distractionRating = Self.normalizedRating(distractionRating)
+        self.topic = Self.normalizedTopic(topic)
+        self.completionState = completionState
+            ?? (source == .manual ? .manuallyEntered : .completedNormally)
     }
 
     private enum CodingKeys: String, CodingKey {
         case id
         case classID
         case startedAt
+        case endedAt
         case legacyDate = "date"
         case duration
         case source
         case pomodoroIntervalCount
         case focusRating
+        case energyRating
+        case distractionRating
+        case topic
+        case completionState
     }
 
     init(from decoder: Decoder) throws {
@@ -151,14 +267,29 @@ struct StudySession: Identifiable, Codable, Hashable {
         startedAt = try container.decodeIfPresent(Date.self, forKey: .startedAt)
             ?? container.decode(Date.self, forKey: .legacyDate)
         duration = try container.decode(TimeInterval.self, forKey: .duration)
+        endedAt = try container.decodeIfPresent(Date.self, forKey: .endedAt)
+            ?? startedAt.addingTimeInterval(max(0, duration))
         source = try container.decodeIfPresent(StudySessionSource.self, forKey: .source) ?? .manual
         pomodoroIntervalCount = max(
             0,
             try container.decodeIfPresent(Int.self, forKey: .pomodoroIntervalCount) ?? 0
         )
-        focusRating = Self.normalizedFocusRating(
+        focusRating = Self.normalizedRating(
             try container.decodeIfPresent(Int.self, forKey: .focusRating)
         )
+        energyRating = Self.normalizedRating(
+            try container.decodeIfPresent(Int.self, forKey: .energyRating)
+        )
+        distractionRating = Self.normalizedRating(
+            try container.decodeIfPresent(Int.self, forKey: .distractionRating)
+        )
+        topic = Self.normalizedTopic(
+            try container.decodeIfPresent(String.self, forKey: .topic)
+        )
+        completionState = try container.decodeIfPresent(
+            SessionCompletionState.self,
+            forKey: .completionState
+        ) ?? (source == .manual ? .manuallyEntered : .completedNormally)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -166,15 +297,26 @@ struct StudySession: Identifiable, Codable, Hashable {
         try container.encode(id, forKey: .id)
         try container.encode(classID, forKey: .classID)
         try container.encode(startedAt, forKey: .startedAt)
+        try container.encode(endedAt, forKey: .endedAt)
         try container.encode(duration, forKey: .duration)
         try container.encode(source, forKey: .source)
         try container.encode(pomodoroIntervalCount, forKey: .pomodoroIntervalCount)
         try container.encodeIfPresent(focusRating, forKey: .focusRating)
+        try container.encodeIfPresent(energyRating, forKey: .energyRating)
+        try container.encodeIfPresent(distractionRating, forKey: .distractionRating)
+        try container.encodeIfPresent(topic, forKey: .topic)
+        try container.encode(completionState, forKey: .completionState)
     }
 
-    private static func normalizedFocusRating(_ rating: Int?) -> Int? {
+    private static func normalizedRating(_ rating: Int?) -> Int? {
         guard let rating, (1...5).contains(rating) else { return nil }
         return rating
+    }
+
+    private static func normalizedTopic(_ topic: String?) -> String? {
+        guard let topic else { return nil }
+        let trimmed = topic.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 
@@ -182,6 +324,14 @@ enum StudySessionSource: String, Codable, Hashable {
     case manual
     case timer
     case pomodoro
+}
+
+enum SessionCompletionState: String, Codable, CaseIterable, Hashable, Identifiable {
+    case completedNormally
+    case stoppedEarly
+    case manuallyEntered
+
+    var id: String { rawValue }
 }
 
 struct ChartSettings: Codable, Equatable {
@@ -240,6 +390,18 @@ struct DailyTotal: Identifiable {
     let seconds: TimeInterval
 }
 
+struct DailyClassTotal: Identifiable {
+    struct ID: Hashable {
+        let date: Date
+        let classID: UUID
+    }
+
+    var id: ID { ID(date: date, classID: studyClass.id) }
+    let date: Date
+    let studyClass: StudyClass
+    let seconds: TimeInterval
+}
+
 struct ClassTotal: Identifiable {
     var id: UUID { studyClass.id }
     let studyClass: StudyClass
@@ -250,6 +412,8 @@ enum SidebarSelection: Hashable {
     case dashboard
     case insights
     case weeklyReview
+    case goals
+    case archivedCourses
     case pomodoro
     case settings
     case studyClass(UUID)

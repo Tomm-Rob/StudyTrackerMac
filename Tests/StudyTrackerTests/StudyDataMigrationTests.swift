@@ -26,9 +26,21 @@ final class StudyDataMigrationTests: XCTestCase {
 
         XCTAssertEqual(data.schemaVersion, 1)
         XCTAssertFalse(data.classes[0].isArchived)
+        XCTAssertEqual(data.classes[0].status, .active)
+        XCTAssertEqual(data.classes[0].progressPercentage, 0)
+        XCTAssertNil(data.classes[0].courseCode)
+        XCTAssertNil(data.classes[0].plannedStudyHours)
         XCTAssertEqual(data.sessions[0].source, .manual)
         XCTAssertEqual(data.sessions[0].pomodoroIntervalCount, 0)
         XCTAssertNil(data.sessions[0].focusRating)
+        XCTAssertEqual(
+            data.sessions[0].endedAt,
+            data.sessions[0].startedAt.addingTimeInterval(data.sessions[0].duration)
+        )
+        XCTAssertNil(data.sessions[0].energyRating)
+        XCTAssertNil(data.sessions[0].distractionRating)
+        XCTAssertNil(data.sessions[0].topic)
+        XCTAssertEqual(data.sessions[0].completionState, .manuallyEntered)
         XCTAssertEqual(data.pomodoroSettings, PomodoroSettings())
         XCTAssertTrue(data.goals.isEmpty)
         XCTAssertEqual(data.dashboardLayout, DashboardLayout())
@@ -60,6 +72,7 @@ final class StudyDataMigrationTests: XCTestCase {
         XCTAssertEqual(data.sessions[0].source, .manual)
         XCTAssertEqual(data.sessions[0].pomodoroIntervalCount, 0)
         XCTAssertNil(data.sessions[0].focusRating)
+        XCTAssertEqual(data.sessions[0].completionState, .manuallyEntered)
         XCTAssertEqual(data.chartSettings.dailyBarColorHex, "#2563EB")
         XCTAssertEqual(data.pomodoroSettings, PomodoroSettings())
         XCTAssertTrue(data.goals.isEmpty)
@@ -132,15 +145,143 @@ final class StudyDataMigrationTests: XCTestCase {
         XCTAssertEqual(data.dashboardLayout, DashboardLayout())
     }
 
+    func testVersionSixCourseDecodesWithPlanningDefaults() throws {
+        let json = """
+        {
+          "schemaVersion": 6,
+          "classes": [{
+            "id": "11111111-1111-1111-1111-111111111111",
+            "name": "Biology",
+            "colorHex": "#16A34A"
+          }],
+          "sessions": [],
+          "goals": [],
+          "chartSettings": {},
+          "pomodoroSettings": {},
+          "dashboardLayout": {"cards": []}
+        }
+        """
+
+        var data = try decoder.decode(StudyData.self, from: Data(json.utf8))
+        let course = try XCTUnwrap(data.classes.first)
+
+        XCTAssertEqual(course.status, .active)
+        XCTAssertEqual(course.progressPercentage, 0)
+        XCTAssertNil(course.courseCode)
+        XCTAssertNil(course.creditValue)
+        XCTAssertNil(course.startDate)
+        XCTAssertNil(course.targetCompletionDate)
+        XCTAssertNil(course.plannedStudyHours)
+        XCTAssertNil(course.completionDate)
+        XCTAssertNil(course.weeklyStudyHoursTarget)
+        XCTAssertNil(course.priority)
+
+        data.migrateToCurrentSchema(legacyPomodoroSettings: nil)
+        XCTAssertEqual(data.schemaVersion, StudyData.currentSchemaVersion)
+    }
+
+    func testVersionSevenSessionDecodesWithRicherSessionDefaults() throws {
+        let classID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let json = """
+        {
+          "schemaVersion": 7,
+          "classes": [],
+          "sessions": [{
+            "id": "22222222-2222-2222-2222-222222222222",
+            "classID": "\(classID.uuidString)",
+            "startedAt": "2026-07-15T14:00:00Z",
+            "duration": 1800,
+            "source": "timer",
+            "pomodoroIntervalCount": 0,
+            "focusRating": 4
+          }],
+          "goals": [],
+          "chartSettings": {},
+          "pomodoroSettings": {},
+          "dashboardLayout": {"cards": []}
+        }
+        """
+
+        var data = try decoder.decode(StudyData.self, from: Data(json.utf8))
+        let session = try XCTUnwrap(data.sessions.first)
+
+        XCTAssertEqual(session.endedAt, session.startedAt.addingTimeInterval(1800))
+        XCTAssertEqual(session.focusRating, 4)
+        XCTAssertNil(session.energyRating)
+        XCTAssertNil(session.distractionRating)
+        XCTAssertNil(session.topic)
+        XCTAssertEqual(session.completionState, .completedNormally)
+
+        data.migrateToCurrentSchema(legacyPomodoroSettings: nil)
+        XCTAssertEqual(data.schemaVersion, StudyData.currentSchemaVersion)
+    }
+
+    func testRicherSessionFieldsNormalizeInvalidOptionalValues() {
+        let startedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let session = StudySession(
+            classID: UUID(),
+            startedAt: startedAt,
+            endedAt: startedAt.addingTimeInterval(-60),
+            duration: 1_800,
+            source: .timer,
+            focusRating: 0,
+            energyRating: 6,
+            distractionRating: -1,
+            topic: "   "
+        )
+
+        XCTAssertEqual(session.endedAt, startedAt)
+        XCTAssertNil(session.focusRating)
+        XCTAssertNil(session.energyRating)
+        XCTAssertNil(session.distractionRating)
+        XCTAssertNil(session.topic)
+        XCTAssertEqual(session.completionState, .completedNormally)
+    }
+
+    func testCoursePlanningFieldsEncodeAndNormalize() throws {
+        let course = StudyClass(
+            name: "Physics",
+            colorHex: "#2563EB",
+            courseCode: "  PHY 201  ",
+            creditValue: 4,
+            startDate: Date(timeIntervalSince1970: 1_700_000_000),
+            targetCompletionDate: Date(timeIntervalSince1970: 1_710_000_000),
+            plannedStudyHours: 120,
+            status: .paused,
+            completionDate: nil,
+            progressPercentage: 140,
+            weeklyStudyHoursTarget: 8.5,
+            priority: .high
+        )
+        let data = StudyData(classes: [course])
+
+        let encoded = try encoder.encode(data)
+        let restored = try decoder.decode(StudyData.self, from: encoded)
+        let restoredCourse = try XCTUnwrap(restored.classes.first)
+
+        XCTAssertEqual(restoredCourse.courseCode, "PHY 201")
+        XCTAssertEqual(restoredCourse.creditValue, 4)
+        XCTAssertEqual(restoredCourse.plannedStudyHours, 120)
+        XCTAssertEqual(restoredCourse.status, .paused)
+        XCTAssertEqual(restoredCourse.progressPercentage, 100)
+        XCTAssertEqual(restoredCourse.weeklyStudyHoursTarget, 8.5)
+        XCTAssertEqual(restoredCourse.priority, .high)
+    }
+
     func testCurrentSessionEncodingUsesAnalyticsFieldsAndStartedAt() throws {
         let studyClass = StudyClass(name: "Chemistry", colorHex: "#DB2777")
         let session = StudySession(
             classID: studyClass.id,
             startedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            endedAt: Date(timeIntervalSince1970: 1_700_001_800),
             duration: 1_800,
             source: .pomodoro,
             pomodoroIntervalCount: 1,
-            focusRating: 4
+            focusRating: 4,
+            energyRating: 3,
+            distractionRating: 2,
+            topic: "  Stoichiometry  ",
+            completionState: .stoppedEarly
         )
         let goal = StudyGoal(
             kind: .course,
@@ -160,10 +301,15 @@ final class StudyDataMigrationTests: XCTestCase {
 
         XCTAssertEqual(json["schemaVersion"] as? Int, StudyData.currentSchemaVersion)
         XCTAssertNotNil(encodedSession["startedAt"])
+        XCTAssertNotNil(encodedSession["endedAt"])
         XCTAssertNil(encodedSession["date"])
         XCTAssertEqual(encodedSession["source"] as? String, "pomodoro")
         XCTAssertEqual(encodedSession["pomodoroIntervalCount"] as? Int, 1)
         XCTAssertEqual(encodedSession["focusRating"] as? Int, 4)
+        XCTAssertEqual(encodedSession["energyRating"] as? Int, 3)
+        XCTAssertEqual(encodedSession["distractionRating"] as? Int, 2)
+        XCTAssertEqual(encodedSession["topic"] as? String, "Stoichiometry")
+        XCTAssertEqual(encodedSession["completionState"] as? String, "stoppedEarly")
         XCTAssertEqual(encodedGoal["kind"] as? String, "course")
         XCTAssertEqual(encodedGoal["targetDuration"] as? Double, 36_000)
     }

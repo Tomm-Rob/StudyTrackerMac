@@ -118,6 +118,17 @@ final class StudyStore: ObservableObject {
         data.classes[index] = studyClass
     }
 
+    func restoreClass(id: UUID) {
+        guard activeClasses.count < Self.maxClasses,
+              let index = data.classes.firstIndex(where: { $0.id == id && $0.isArchived }) else {
+            return
+        }
+        var studyClass = data.classes[index]
+        studyClass.isArchived = false
+        studyClass.archivedAt = nil
+        data.classes[index] = studyClass
+    }
+
     func addGoal(_ goal: StudyGoal) {
         data.goals.append(goal)
     }
@@ -137,10 +148,15 @@ final class StudyStore: ObservableObject {
     func addSession(
         classID: UUID,
         startedAt: Date,
+        endedAt: Date? = nil,
         duration: TimeInterval,
         source: StudySessionSource = .manual,
         pomodoroIntervalCount: Int = 0,
-        focusRating: Int? = nil
+        focusRating: Int? = nil,
+        energyRating: Int? = nil,
+        distractionRating: Int? = nil,
+        topic: String? = nil,
+        completionState: SessionCompletionState? = nil
     ) {
         guard duration > 0,
               data.classes.contains(where: { $0.id == classID && !$0.isArchived }) else { return }
@@ -148,10 +164,15 @@ final class StudyStore: ObservableObject {
             StudySession(
                 classID: classID,
                 startedAt: startedAt,
+                endedAt: endedAt,
                 duration: duration,
                 source: source,
                 pomodoroIntervalCount: pomodoroIntervalCount,
-                focusRating: focusRating
+                focusRating: focusRating,
+                energyRating: energyRating,
+                distractionRating: distractionRating,
+                topic: topic,
+                completionState: completionState
             )
         )
     }
@@ -193,6 +214,33 @@ final class StudyStore: ObservableObject {
         return (0..<daysBack).compactMap { offset in
             guard let day = calendar.date(byAdding: .day, value: offset, to: start) else { return nil }
             return DailyTotal(date: day, seconds: grouped[day] ?? 0)
+        }
+    }
+
+    func dailyClassTotals(daysBack: Int = 14) -> [DailyClassTotal] {
+        let calendar = Calendar.current
+        let today = Date().startOfDay
+        let start = calendar.date(byAdding: .day, value: -(daysBack - 1), to: today) ?? today
+        let end = calendar.date(byAdding: .day, value: 1, to: today) ?? Date.distantFuture
+        let grouped = analytics.studyTimeByDateAndCourse(
+            in: data.sessions,
+            interval: DateInterval(start: start, end: end)
+        )
+
+        return (0..<daysBack).flatMap { offset -> [DailyClassTotal] in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: start) else {
+                return []
+            }
+
+            return data.classes.compactMap { studyClass in
+                let key = CourseDateKey(date: day, courseID: studyClass.id)
+                guard let seconds = grouped[key], seconds > 0 else { return nil }
+                return DailyClassTotal(
+                    date: day,
+                    studyClass: studyClass,
+                    seconds: seconds
+                )
+            }
         }
     }
 

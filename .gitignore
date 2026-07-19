@@ -39,6 +39,7 @@ playground.xcworkspace
 # .swiftpm
 
 .build/
+.swiftpm/
 .swiftpm/xcode/package.xcworkspace/xcuserdata/
 DerivedData/
 dist/

@@ -10,7 +10,7 @@ struct PomodoroView: View {
     @State private var completedFocusSessions = 0
     @State private var selectedClassID: UUID?
     @State private var elapsedFocusSeconds = 0
-    @State private var focusRating: Int?
+    @State private var pendingCompletion: SessionCompletionDraft?
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -36,24 +36,26 @@ struct PomodoroView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            header
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                header
 
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 12) {
-                    timerPanel
-                    settingsPanel
-                }
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 12) {
+                        timerPanel
+                        settingsPanel
+                    }
 
-                VStack(spacing: 12) {
-                    timerPanel
-                    settingsPanel
+                    VStack(spacing: 12) {
+                        timerPanel
+                        settingsPanel
+                    }
                 }
             }
-
-            Spacer()
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             selectedClassID = effectiveSelectedClassID
             resetTimer()
@@ -66,6 +68,16 @@ struct PomodoroView: View {
         .onChange(of: longBreakMinutes) { _, _ in resetTimerIfPaused() }
         .onChange(of: store.activeClasses.map(\.id)) { _, _ in
             selectedClassID = effectiveSelectedClassID
+        }
+        .sheet(item: $pendingCompletion) { draft in
+            SessionCompletionSheet(
+                draft: draft,
+                cancel: { pendingCompletion = nil },
+                saved: {
+                    pendingCompletion = nil
+                    finishLoggedFocus(completedInterval: draft.pomodoroIntervalCount > 0)
+                }
+            )
         }
     }
 
@@ -128,13 +140,11 @@ struct PomodoroView: View {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 10) {
                     logPicker
-                    FocusRatingControl(rating: $focusRating)
                     logButton
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
                     logPicker
-                    FocusRatingControl(rating: $focusRating)
                     logButton
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -159,7 +169,7 @@ struct PomodoroView: View {
 
     private var logButton: some View {
         Button {
-            logElapsedFocus(completedInterval: false)
+            presentFocusCompletion(completedInterval: false)
         } label: {
             Label("Log Focus", systemImage: "checkmark.circle")
         }
@@ -257,9 +267,8 @@ struct PomodoroView: View {
         NSSound(named: "Glass")?.play()
 
         if mode == .focus {
-            completedFocusSessions += 1
-            logElapsedFocus(completedInterval: true)
-            mode = completedFocusSessions.isMultiple(of: 4) ? .longBreak : .shortBreak
+            presentFocusCompletion(completedInterval: true)
+            return
         } else {
             mode = .focus
         }
@@ -281,18 +290,27 @@ struct PomodoroView: View {
         }
     }
 
-    private func logElapsedFocus(completedInterval: Bool) {
+    private func presentFocusCompletion(completedInterval: Bool) {
         guard let effectiveSelectedClassID, elapsedFocusSeconds >= 60 else { return }
-        store.addSession(
+        isRunning = false
+        pendingCompletion = SessionCompletionDraft(
             classID: effectiveSelectedClassID,
             startedAt: Date().addingTimeInterval(-TimeInterval(elapsedFocusSeconds)),
+            endedAt: Date(),
             duration: TimeInterval(elapsedFocusSeconds),
             source: .pomodoro,
             pomodoroIntervalCount: completedInterval ? 1 : 0,
-            focusRating: focusRating
+            completionState: completedInterval ? .completedNormally : .stoppedEarly
         )
+    }
+
+    private func finishLoggedFocus(completedInterval: Bool) {
         elapsedFocusSeconds = 0
-        focusRating = nil
+        if completedInterval {
+            completedFocusSessions += 1
+            mode = completedFocusSessions.isMultiple(of: 4) ? .longBreak : .shortBreak
+        }
+        resetTimer()
     }
 }
 

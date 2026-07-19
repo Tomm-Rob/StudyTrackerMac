@@ -29,45 +29,98 @@ struct InsightsView: View {
         service.snapshot(
             classes: store.data.classes,
             sessions: store.data.sessions,
-            interval: selectedInterval
+            interval: selectedInterval,
+            comparisonInterval: selectedFilter.comparisonInterval(
+                asOf: Date(),
+                calendar: .current,
+                customStart: customStart,
+                customEnd: customEnd
+            )
         )
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                header
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    header
 
-                if selectedFilter == .custom {
-                    customRangeControls
-                }
+                    if selectedFilter == .custom {
+                        customRangeControls
+                    }
 
-                summaryMetrics
+                    summaryMetrics
+                        .id(GeneratedInsightDestination.overview.rawValue)
 
-                if snapshot.isEmpty {
-                    emptyState
-                } else {
-                    InsightsMessagesPanel(messages: snapshot.messages)
-                    CourseAnalyticsPanel(totals: snapshot.courseTotals)
+                    if snapshot.isEmpty {
+                        emptyState
+                    } else {
+                        InsightsMessagesPanel(
+                            insights: snapshot.generatedInsights,
+                            onOpen: { destination in
+                                withAnimation {
+                                    proxy.scrollTo(destination.rawValue, anchor: .top)
+                                }
+                            }
+                        )
+                        if let comparison = snapshot.comparison {
+                            PeriodComparisonPanel(comparison: comparison)
+                        }
+                        CourseAnalyticsPanel(totals: snapshot.courseTotals)
+                            .id(GeneratedInsightDestination.courses.rawValue)
+                        CourseAnalyticsDetailsPanel(totals: snapshot.courseTotals)
 
-                    ViewThatFits(in: .horizontal) {
-                        HStack(alignment: .top, spacing: 12) {
-                            WeekdayPatternPanel(totals: snapshot.weekdayTotals)
-                                .frame(minWidth: 320, maxWidth: .infinity, minHeight: 250)
-                            HourlyPatternPanel(totals: snapshot.hourlyTotals)
-                                .frame(minWidth: 320, maxWidth: .infinity, minHeight: 250)
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .top, spacing: 10) {
+                                WeekdayPatternPanel(totals: snapshot.weekdayTotals)
+                                    .frame(minWidth: 300, maxWidth: .infinity, minHeight: 220)
+                                HourlyPatternPanel(totals: snapshot.hourlyTotals)
+                                    .frame(minWidth: 300, maxWidth: .infinity, minHeight: 220)
+                            }
+
+                            VStack(spacing: 10) {
+                                WeekdayPatternPanel(totals: snapshot.weekdayTotals)
+                                    .frame(minHeight: 220)
+                                HourlyPatternPanel(totals: snapshot.hourlyTotals)
+                                    .frame(minHeight: 220)
+                            }
+                        }
+                        .id(GeneratedInsightDestination.timePatterns.rawValue)
+
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .top, spacing: 10) {
+                                TimeWindowAnalyticsPanel(
+                                    totals: snapshot.timeWindowTotals,
+                                    mostProductive: snapshot.mostProductiveTimeWindow
+                                )
+                                .frame(minWidth: 310, maxWidth: .infinity)
+                                FocusByWeekdayPanel(
+                                    totals: snapshot.weekdayTotals,
+                                    mostProductive: snapshot.mostProductiveDay
+                                )
+                                .frame(minWidth: 300, maxWidth: .infinity)
+                            }
+
+                            VStack(spacing: 10) {
+                                TimeWindowAnalyticsPanel(
+                                    totals: snapshot.timeWindowTotals,
+                                    mostProductive: snapshot.mostProductiveTimeWindow
+                                )
+                                FocusByWeekdayPanel(
+                                    totals: snapshot.weekdayTotals,
+                                    mostProductive: snapshot.mostProductiveDay
+                                )
+                            }
                         }
 
-                        VStack(spacing: 12) {
-                            WeekdayPatternPanel(totals: snapshot.weekdayTotals)
-                                .frame(minHeight: 250)
-                            HourlyPatternPanel(totals: snapshot.hourlyTotals)
-                                .frame(minHeight: 250)
-                        }
+                        ConsistencySummaryPanel(snapshot: snapshot)
+                            .id(GeneratedInsightDestination.consistency.rawValue)
+                        StudyHeatmapPanel(days: snapshot.heatmapDays)
+                        WeeklyTrendPanel(totals: snapshot.weeklyTrend)
                     }
                 }
+                .padding(16)
             }
-            .padding(16)
         }
     }
 
@@ -145,9 +198,9 @@ struct InsightsView: View {
                 systemImage: "clock"
             )
             InsightsMetricTile(
-                title: "Average Session",
-                value: snapshot.averageSessionDuration.compactDuration,
-                systemImage: "timer"
+                title: "Avg per Day",
+                value: snapshot.averageStudyTimePerActiveDay.compactDuration,
+                systemImage: "calendar"
             )
             InsightsMetricTile(
                 title: "Sessions",
@@ -160,14 +213,29 @@ struct InsightsView: View {
                 systemImage: "calendar.badge.checkmark"
             )
             InsightsMetricTile(
-                title: "Courses Studied",
-                value: "\(snapshot.courseCount)",
-                systemImage: "books.vertical"
+                title: "Average Session",
+                value: snapshot.averageSessionDuration.compactDuration,
+                systemImage: "timer"
+            )
+            InsightsMetricTile(
+                title: "Longest Session",
+                value: snapshot.longestSessionDuration.compactDuration,
+                systemImage: "arrow.left.and.right"
             )
             InsightsMetricTile(
                 title: "Pomodoros",
                 value: "\(snapshot.pomodoroIntervalCount)",
                 systemImage: "checkmark.circle"
+            )
+            InsightsMetricTile(
+                title: "Current Streak",
+                value: "\(snapshot.currentStreak) days",
+                systemImage: "flame"
+            )
+            InsightsMetricTile(
+                title: "Longest Streak",
+                value: "\(snapshot.longestStreak) days",
+                systemImage: "trophy"
             )
         }
     }
@@ -178,7 +246,7 @@ struct InsightsView: View {
             systemImage: "chart.xyaxis.line",
             description: Text("Choose another date range or log a study session.")
         )
-        .frame(maxWidth: .infinity, minHeight: 260)
+        .frame(maxWidth: .infinity, minHeight: 200)
         .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
@@ -207,21 +275,41 @@ private struct InsightsMetricTile: View {
 }
 
 private struct InsightsMessagesPanel: View {
-    let messages: [String]
+    let insights: [GeneratedInsight]
+    let onOpen: (GeneratedInsightDestination) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Local Insights", systemImage: "sparkles")
                 .font(.headline)
 
-            ForEach(Array(messages.enumerated()), id: \.offset) { _, message in
+            ForEach(insights) { insight in
                 HStack(alignment: .top, spacing: 9) {
                     Image(systemName: "lightbulb")
                         .foregroundStyle(.tint)
                         .frame(width: 18)
-                    Text(message)
-                        .font(.callout)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(insight.title)
+                            .font(.callout.weight(.semibold))
+                        Text(insight.explanation)
+                            .font(.callout)
+                        Text(insight.dateRangeDescription)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if let destination = insight.destination,
+                       destination != .overview {
+                        Button {
+                            onOpen(destination)
+                        } label: {
+                            Image(systemName: "arrow.down.right")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .help("View related analytics")
+                    }
                 }
             }
         }
@@ -236,7 +324,7 @@ private struct CourseAnalyticsPanel: View {
     @State private var tooltip: InsightsChartTooltip?
 
     private var chartHeight: CGFloat {
-        max(220, CGFloat(totals.count) * 30)
+        max(190, CGFloat(totals.count) * 28)
     }
 
     var body: some View {

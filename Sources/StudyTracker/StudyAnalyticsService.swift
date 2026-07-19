@@ -1,5 +1,10 @@
 import Foundation
 
+struct CourseDateKey: Hashable {
+    let date: Date
+    let courseID: UUID
+}
+
 struct StudyAnalyticsService {
     let calendar: Calendar
 
@@ -34,6 +39,24 @@ struct StudyAnalyticsService {
         Dictionary(
             grouping: filteredSessions(sessions, courseID: courseID, interval: interval),
             by: { calendar.startOfDay(for: $0.startedAt) }
+        )
+        .mapValues { groupedSessions in
+            groupedSessions.reduce(0) { $0 + $1.duration }
+        }
+    }
+
+    func studyTimeByDateAndCourse(
+        in sessions: [StudySession],
+        interval: DateInterval? = nil
+    ) -> [CourseDateKey: TimeInterval] {
+        Dictionary(
+            grouping: filteredSessions(sessions, courseID: nil, interval: interval),
+            by: {
+                CourseDateKey(
+                    date: calendar.startOfDay(for: $0.startedAt),
+                    courseID: $0.classID
+                )
+            }
         )
         .mapValues { groupedSessions in
             groupedSessions.reduce(0) { $0 + $1.duration }

@@ -40,6 +40,139 @@ final class DashboardLayoutServiceTests: XCTestCase {
         XCTAssertEqual(oneColumn.map(\.instanceID), ["wide", "small", "large"])
     }
 
+    func testDashboardUsesUpToThreeColumnsAsSpaceAllows() {
+        XCTAssertEqual(service.recommendedColumnCount(forAvailableWidth: 359), 1)
+        XCTAssertEqual(service.recommendedColumnCount(forAvailableWidth: 360), 2)
+        XCTAssertEqual(service.recommendedColumnCount(forAvailableWidth: 539), 2)
+        XCTAssertEqual(service.recommendedColumnCount(forAvailableWidth: 540), 3)
+        XCTAssertEqual(service.recommendedColumnCount(forAvailableWidth: 1_400), 3)
+    }
+
+    func testDonutCardSupportsCompactSizesAndDefaultsToSmall() throws {
+        let definition = try XCTUnwrap(
+            DashboardCardRegistry.definition(for: "class-breakdown")
+        )
+
+        XCTAssertEqual(definition.defaultSize, .small)
+        XCTAssertTrue(definition.supportedSizes.contains(.small))
+        XCTAssertTrue(definition.supportedSizes.contains(.medium))
+    }
+
+    func testLeaderboardSupportsCompactSizesAndDefaultsToSmall() throws {
+        let definition = try XCTUnwrap(
+            DashboardCardRegistry.definition(for: "leaderboard")
+        )
+
+        XCTAssertEqual(definition.defaultSize, .small)
+        XCTAssertTrue(definition.supportedSizes.contains(.small))
+        XCTAssertTrue(definition.supportedSizes.contains(.medium))
+    }
+
+    func testInsightsCardSupportsSmallSquareSize() throws {
+        let definition = try XCTUnwrap(
+            DashboardCardRegistry.definition(for: "local-insights")
+        )
+
+        XCTAssertTrue(definition.supportedSizes.contains(.small))
+    }
+
+    func testGoalsCardSupportsSmallSquareSize() throws {
+        let definition = try XCTUnwrap(
+            DashboardCardRegistry.definition(for: "goals")
+        )
+
+        XCTAssertTrue(definition.supportedSizes.contains(.small))
+    }
+
+    func testDefaultLayoutMatchesRequestedThreeColumnArrangement() {
+        let visibleCards = DashboardCardRegistry.defaultLayoutCards.filter(\.isVisible)
+        XCTAssertEqual(
+            visibleCards.map(\.kindID),
+            [
+                "total-time",
+                "daily-study",
+                "class-breakdown",
+                "leaderboard",
+                "local-insights",
+                "goals"
+            ]
+        )
+        XCTAssertEqual(
+            visibleCards.map(\.size),
+            [.small, .large, .small, .small, .small, .small]
+        )
+
+        let placements = service.placements(for: visibleCards, columnCount: 3)
+        XCTAssertEqual(placements, [
+            DashboardGridPlacement(
+                instanceID: "dashboard.total-time",
+                row: 0,
+                column: 0,
+                columnSpan: 1,
+                rowSpan: 1
+            ),
+            DashboardGridPlacement(
+                instanceID: "dashboard.daily-study",
+                row: 0,
+                column: 1,
+                columnSpan: 2,
+                rowSpan: 2
+            ),
+            DashboardGridPlacement(
+                instanceID: "dashboard.class-breakdown",
+                row: 1,
+                column: 0,
+                columnSpan: 1,
+                rowSpan: 1
+            ),
+            DashboardGridPlacement(
+                instanceID: "dashboard.leaderboard",
+                row: 2,
+                column: 0,
+                columnSpan: 1,
+                rowSpan: 1
+            ),
+            DashboardGridPlacement(
+                instanceID: "dashboard.local-insights",
+                row: 2,
+                column: 1,
+                columnSpan: 1,
+                rowSpan: 1
+            ),
+            DashboardGridPlacement(
+                instanceID: "dashboard.goals",
+                row: 2,
+                column: 2,
+                columnSpan: 1,
+                rowSpan: 1
+            )
+        ])
+    }
+
+    func testOldDefaultsReceiveNewLayoutWithoutChangingCustomLayouts() {
+        let previousDefault = DashboardLayout(
+            cards: DashboardCardRegistry.previousDefaultLayoutCards
+        )
+        let legacyDefault = DashboardLayout(
+            cards: DashboardCardRegistry.legacyDefaultLayoutCards
+        )
+        XCTAssertEqual(
+            service.applyingUpdatedDefaults(to: previousDefault),
+            DashboardLayout()
+        )
+        XCTAssertEqual(
+            service.applyingUpdatedDefaults(to: legacyDefault),
+            DashboardLayout()
+        )
+
+        let customized = service.setVisibility(
+            false,
+            for: "dashboard.classes",
+            in: previousDefault
+        )
+        XCTAssertEqual(service.applyingUpdatedDefaults(to: customized), customized)
+    }
+
     func testUnsupportedSizeFallsBackDuringNormalizationAndCannotBeApplied() {
         let invalid = DashboardLayout(cards: [
             DashboardCardInstance(

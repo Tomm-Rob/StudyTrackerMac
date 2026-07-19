@@ -60,6 +60,45 @@ enum InsightsDateFilter: String, CaseIterable, Identifiable {
             return DateInterval(start: start, end: end)
         }
     }
+
+    func comparisonInterval(
+        asOf date: Date,
+        calendar: Calendar,
+        customStart: Date,
+        customEnd: Date
+    ) -> DateInterval? {
+        guard self != .allTime,
+              let current = dateInterval(
+                asOf: date,
+                calendar: calendar,
+                customStart: customStart,
+                customEnd: customEnd
+              ) else { return nil }
+
+        let effectiveEnd = min(current.end, date.addingTimeInterval(0.001))
+        guard current.start < effectiveEnd else { return nil }
+
+        let component: Calendar.Component?
+        switch self {
+        case .today: component = .day
+        case .thisWeek: component = .weekOfYear
+        case .thisMonth: component = .month
+        case .thisYear: component = .year
+        case .last7Days, .last30Days, .custom, .allTime: component = nil
+        }
+
+        if let component,
+           let start = calendar.date(byAdding: component, value: -1, to: current.start),
+           let end = calendar.date(byAdding: component, value: -1, to: effectiveEnd) {
+            return DateInterval(start: start, end: end)
+        }
+
+        let duration = effectiveEnd.timeIntervalSince(current.start)
+        return DateInterval(
+            start: current.start.addingTimeInterval(-duration),
+            end: current.start
+        )
+    }
 }
 
 struct CourseInsightTotal: Identifiable, Equatable {
@@ -68,6 +107,16 @@ struct CourseInsightTotal: Identifiable, Equatable {
     let name: String
     let colorHex: String
     let seconds: TimeInterval
+    let percentageOfTotal: Double
+    let averageSessionDuration: TimeInterval
+    let sessionCount: Int
+    let lastStudiedDate: Date?
+    let plannedStudyHours: Double?
+    let plannedProgressFraction: Double?
+    let weeklyTargetHours: Double?
+    let weeklyTargetProgressFraction: Double?
+    let priority: CoursePriority?
+    let receivesLessAttention: Bool
 }
 
 struct WeekdayInsightTotal: Identifiable, Equatable {
@@ -75,6 +124,63 @@ struct WeekdayInsightTotal: Identifiable, Equatable {
     let weekday: Int
     let label: String
     let seconds: TimeInterval
+    let averageFocusRating: Double?
+}
+
+enum StudyTimeWindow: String, CaseIterable, Identifiable {
+    case morning
+    case afternoon
+    case evening
+    case night
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .morning: "Morning"
+        case .afternoon: "Afternoon"
+        case .evening: "Evening"
+        case .night: "Night"
+        }
+    }
+
+    var hourRange: String {
+        switch self {
+        case .morning: "5 AM - 12 PM"
+        case .afternoon: "12 PM - 5 PM"
+        case .evening: "5 PM - 9 PM"
+        case .night: "9 PM - 5 AM"
+        }
+    }
+}
+
+struct TimeWindowInsight: Identifiable, Equatable {
+    var id: StudyTimeWindow { window }
+    let window: StudyTimeWindow
+    let seconds: TimeInterval
+    let averageFocusRating: Double?
+    let averageSessionDuration: TimeInterval
+    let sessionCount: Int
+}
+
+struct StudyHeatmapDay: Identifiable, Equatable {
+    var id: Date { date }
+    let date: Date
+    let seconds: TimeInterval
+}
+
+struct WeeklyStudyTrend: Identifiable, Equatable {
+    var id: Date { weekStart }
+    let weekStart: Date
+    let seconds: TimeInterval
+}
+
+struct PeriodComparison: Equatable {
+    let previousInterval: DateInterval
+    let currentDuration: TimeInterval
+    let previousDuration: TimeInterval
+    let numericalDifference: TimeInterval
+    let percentageChange: Double?
 }
 
 struct HourlyInsightTotal: Identifiable, Equatable {
@@ -84,17 +190,48 @@ struct HourlyInsightTotal: Identifiable, Equatable {
     let seconds: TimeInterval
 }
 
+enum GeneratedInsightDestination: String, Equatable {
+    case overview
+    case courses
+    case timePatterns
+    case consistency
+}
+
+struct GeneratedInsight: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let explanation: String
+    let dateRangeDescription: String
+    let destination: GeneratedInsightDestination?
+}
+
 struct InsightsSnapshot: Equatable {
     let totalStudyTime: TimeInterval
+    let averageStudyTimePerActiveDay: TimeInterval
     let averageSessionDuration: TimeInterval
+    let longestSessionDuration: TimeInterval
     let sessionCount: Int
     let activeDayCount: Int
+    let selectedDayCount: Int
+    let studiedDayPercentage: Double
     let pomodoroIntervalCount: Int
+    let currentStreak: Int
+    let longestStreak: Int
     let courseCount: Int
     let courseTotals: [CourseInsightTotal]
     let weekdayTotals: [WeekdayInsightTotal]
     let hourlyTotals: [HourlyInsightTotal]
-    let messages: [String]
+    let timeWindowTotals: [TimeWindowInsight]
+    let heatmapDays: [StudyHeatmapDay]
+    let weeklyTrend: [WeeklyStudyTrend]
+    let comparison: PeriodComparison?
+    let mostProductiveDay: WeekdayInsightTotal?
+    let mostProductiveTimeWindow: TimeWindowInsight?
+    let generatedInsights: [GeneratedInsight]
 
     var isEmpty: Bool { sessionCount == 0 }
+
+    var messages: [String] {
+        generatedInsights.map(\.explanation)
+    }
 }

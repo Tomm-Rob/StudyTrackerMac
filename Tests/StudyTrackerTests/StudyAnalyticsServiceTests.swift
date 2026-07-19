@@ -47,6 +47,21 @@ final class StudyAnalyticsServiceTests: XCTestCase {
         XCTAssertEqual(analytics.studyTimeByDate(in: sessions, courseID: courseA)[date(day: 6)], 1_200)
     }
 
+    func testStudyTimeByDateAndCourseSupportsStackedDailyBars() {
+        let sessions = [
+            session(courseID: courseA, day: 6, hour: 9, duration: 1_200),
+            session(courseID: courseA, day: 6, hour: 10, duration: 600),
+            session(courseID: courseB, day: 6, hour: 14, duration: 1_800),
+            session(courseID: courseB, day: 7, duration: 3_600)
+        ]
+
+        let totals = analytics.studyTimeByDateAndCourse(in: sessions)
+
+        XCTAssertEqual(totals[CourseDateKey(date: date(day: 6), courseID: courseA)], 1_800)
+        XCTAssertEqual(totals[CourseDateKey(date: date(day: 6), courseID: courseB)], 1_800)
+        XCTAssertEqual(totals[CourseDateKey(date: date(day: 7), courseID: courseB)], 3_600)
+    }
+
     func testStudyTimeByWeekUsesCalendarWeekBoundaries() {
         let sessions = [
             session(courseID: courseA, day: 6, duration: 1_200),

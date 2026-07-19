@@ -2,7 +2,9 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var store: StudyStore
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selection: SidebarSelection = .dashboard
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,7 +22,7 @@ struct RootView: View {
                 .background(.orange.opacity(0.1))
             }
 
-            NavigationSplitView {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
                 SidebarView(selection: $selection)
                     .navigationSplitViewColumnWidth(min: 170, ideal: 220, max: 280)
             } detail: {
@@ -28,13 +30,20 @@ struct RootView: View {
                     .disabled(store.isPersistenceLocked && selection != .settings)
             }
         }
-        .background(AppTheme.background)
+        .background(AppTheme.background(for: colorScheme))
+        .onAppear {
+            ApplicationIconManager.apply(for: colorScheme)
+        }
+        .onChange(of: colorScheme) { _, newValue in
+            ApplicationIconManager.apply(for: newValue)
+        }
     }
 }
 
 private struct SidebarView: View {
     @EnvironmentObject private var store: StudyStore
     @Binding var selection: SidebarSelection
+    @AppStorage("Sidebar.ClassesExpanded") private var classesExpanded = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -58,11 +67,14 @@ private struct SidebarView: View {
                 Label("Weekly Review", systemImage: "calendar.badge.clock")
                     .tag(SidebarSelection.weeklyReview)
 
+                Label("Goals", systemImage: "target")
+                    .tag(SidebarSelection.goals)
+
                 Label("Pomodoro", systemImage: "timer")
                     .tag(SidebarSelection.pomodoro)
 
-                Section("Classes") {
-                    ForEach(store.activeClasses) { studyClass in
+                Section(isExpanded: $classesExpanded) {
+                    ForEach(Array(store.activeClasses.reversed())) { studyClass in
                         HStack(spacing: 9) {
                             Circle()
                                 .fill(Color(hex: studyClass.colorHex))
@@ -72,7 +84,22 @@ private struct SidebarView: View {
                         }
                         .tag(SidebarSelection.studyClass(studyClass.id))
                     }
+                } header: {
+                    HStack {
+                        Text("Classes")
+                        Spacer()
+                        Text("\(store.activeClasses.count)")
+                            .foregroundStyle(.secondary)
+                    }
                 }
+
+                HStack {
+                    Label("Archived Courses", systemImage: "archivebox")
+                    Spacer()
+                    Text("\(store.data.classes.filter(\.isArchived).count)")
+                        .foregroundStyle(.secondary)
+                }
+                .tag(SidebarSelection.archivedCourses)
 
                 Label("Settings", systemImage: "gearshape")
                     .tag(SidebarSelection.settings)
@@ -98,6 +125,7 @@ private struct SidebarView: View {
 
 private struct DetailView: View {
     @EnvironmentObject private var store: StudyStore
+    @Environment(\.colorScheme) private var colorScheme
     let selection: SidebarSelection
 
     var body: some View {
@@ -109,6 +137,10 @@ private struct DetailView: View {
                 InsightsView()
             case .weeklyReview:
                 WeeklyReviewView()
+            case .goals:
+                GoalsView()
+            case .archivedCourses:
+                ArchivedCoursesView()
             case .pomodoro:
                 PomodoroView()
             case .settings:
@@ -121,12 +153,18 @@ private struct DetailView: View {
                 }
             }
         }
-        .background(AppTheme.background)
+        .background(AppTheme.background(for: colorScheme))
     }
 }
 
 enum AppTheme {
-    static let background = Color(nsColor: .windowBackgroundColor)
+    static func background(for colorScheme: ColorScheme) -> Color {
+        if colorScheme == .dark {
+            return Color(nsColor: .windowBackgroundColor)
+        }
+        return Color(red: 246 / 255, green: 247 / 255, blue: 244 / 255)
+    }
+
     static let panel = Color(nsColor: .controlBackgroundColor)
     static let separator = Color(nsColor: .separatorColor)
 }
