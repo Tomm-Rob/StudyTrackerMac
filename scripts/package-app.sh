@@ -32,10 +32,9 @@ xattr -cr "$ICONSET_DIR"
 
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
-cp "$EXECUTABLE" "$APP_DIR/Contents/Resources/StudyTrackerBinary"
+cp "$EXECUTABLE" "$APP_DIR/Contents/MacOS/StudyTracker"
 cp "$ICON_FILE" "$APP_DIR/Contents/Resources/StudyTrackerIcon.icns"
 cp "$DARK_ICON" "$APP_DIR/Contents/Resources/StudyTrackerIcon-Dark.png"
-cc -O2 "$ROOT_DIR/scripts/launcher.c" -o "$APP_DIR/Contents/MacOS/StudyTracker"
 
 cat > "$APP_DIR/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -72,7 +71,6 @@ PLIST
 
 printf 'APPL????' > "$APP_DIR/Contents/PkgInfo"
 xattr -cr "$APP_DIR"
-codesign --force --sign - --timestamp=none "$APP_DIR/Contents/Resources/StudyTrackerBinary"
 codesign --force --sign - --timestamp=none "$APP_DIR/Contents/MacOS/StudyTracker"
 codesign --force --deep --sign - --timestamp=none "$APP_DIR"
 xattr -cr "$APP_DIR"
