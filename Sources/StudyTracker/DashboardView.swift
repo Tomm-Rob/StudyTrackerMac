@@ -910,7 +910,7 @@ private struct DailyBarChart: View {
                     }
 
                     if let hoverTooltip {
-                        HoverTooltip(tooltip: hoverTooltip)
+                        HoverTooltipOverlay(tooltip: hoverTooltip)
                     }
                 }
             }
@@ -1080,7 +1080,7 @@ private struct ClassDonutChart: View {
                 }
 
                 if let hoverTooltip {
-                    HoverTooltip(tooltip: hoverTooltip)
+                    HoverTooltipOverlay(tooltip: hoverTooltip)
                 }
             }
         }
@@ -1151,7 +1151,7 @@ private struct ClassOverviewChart: View {
                     }
 
                     if let hoverTooltip {
-                        HoverTooltip(tooltip: hoverTooltip)
+                        HoverTooltipOverlay(tooltip: hoverTooltip)
                     }
                 }
 
@@ -1292,9 +1292,63 @@ private struct HoverTooltip: View {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .stroke(AppTheme.separator.opacity(0.8), lineWidth: 0.5)
         )
-        .offset(x: tooltip.location.x + 12, y: max(0, tooltip.location.y - 42))
         .allowsHitTesting(false)
     }
+}
+
+private struct HoverTooltipOverlay: View {
+    let tooltip: ChartHoverTooltip
+
+    var body: some View {
+        GeometryReader { geometry in
+            let tooltipSize = CGSize(
+                width: min(170, max(1, geometry.size.width - 12)),
+                height: min(48, max(1, geometry.size.height - 12))
+            )
+
+            HoverTooltip(tooltip: tooltip)
+                .frame(width: tooltipSize.width, height: tooltipSize.height, alignment: .leading)
+                .position(
+                    tooltipPosition(
+                        pointer: tooltip.location,
+                        tooltipSize: tooltipSize,
+                        containerSize: geometry.size
+                    )
+                )
+        }
+        .allowsHitTesting(false)
+        .zIndex(100)
+    }
+}
+
+private func tooltipPosition(
+    pointer: CGPoint,
+    tooltipSize: CGSize,
+    containerSize: CGSize
+) -> CGPoint {
+    let margin: CGFloat = 6
+    let gap: CGFloat = 10
+    let halfWidth = tooltipSize.width / 2
+    let halfHeight = tooltipSize.height / 2
+
+    let right = pointer.x + gap + halfWidth
+    let left = pointer.x - gap - halfWidth
+    let preferredX = right + halfWidth <= containerSize.width - margin ? right : left
+
+    let above = pointer.y - gap - halfHeight
+    let below = pointer.y + gap + halfHeight
+    let preferredY = above - halfHeight >= margin ? above : below
+
+    return CGPoint(
+        x: min(
+            max(preferredX, margin + halfWidth),
+            max(margin + halfWidth, containerSize.width - margin - halfWidth)
+        ),
+        y: min(
+            max(preferredY, margin + halfHeight),
+            max(margin + halfHeight, containerSize.height - margin - halfHeight)
+        )
+    )
 }
 
 private func hoveredClassTotal(
