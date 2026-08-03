@@ -190,22 +190,39 @@ enum AppTheme {
     }
 }
 
+private struct DashboardCardContentKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var isDashboardCardContent: Bool {
+        get { self[DashboardCardContentKey.self] }
+        set { self[DashboardCardContentKey.self] = newValue }
+    }
+}
+
 private struct AppPanelModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.isDashboardCardContent) private var isDashboardCardContent
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content.background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(AppTheme.panel)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(AppTheme.separator, lineWidth: 0.75)
-                }
-                .shadow(
-                    color: .black.opacity(colorScheme == .dark ? 0.16 : 0.04),
-                    radius: colorScheme == .dark ? 2 : 3,
-                    y: 1
-                )
+        if isDashboardCardContent {
+            content
+        } else {
+            content.background {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(AppTheme.panel)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(AppTheme.separator, lineWidth: 0.75)
+                    }
+                    .shadow(
+                        color: .black.opacity(colorScheme == .dark ? 0.16 : 0.04),
+                        radius: colorScheme == .dark ? 2 : 3,
+                        y: 1
+                    )
+            }
         }
     }
 }

@@ -203,6 +203,8 @@ The default layout uses equal compact rectangles in up to three columns and incl
 - Local Insights
 - Goals
 
+Every card fills its assigned rectangle, even when it has little or no content. The Leaderboard opens in **Overall** mode, which includes archived courses and marks them with an archive icon. Use **Active** to show only current courses.
+
 Additional cards available from the gallery include:
 
 - Sessions

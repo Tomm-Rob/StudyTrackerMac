@@ -253,10 +253,11 @@ final class StudyStore: ObservableObject {
         }
     }
 
-    func classTotals() -> [ClassTotal] {
+    func classTotals(includingArchived: Bool = true) -> [ClassTotal] {
         let grouped = analytics.studyTimeByCourse(in: data.sessions)
+        let classes = data.classes.filter { includingArchived || !$0.isArchived }
 
-        return data.classes.compactMap { studyClass in
+        return classes.compactMap { studyClass in
             let seconds = grouped[studyClass.id] ?? 0
             guard seconds > 0 else { return nil }
             return ClassTotal(studyClass: studyClass, seconds: seconds)
