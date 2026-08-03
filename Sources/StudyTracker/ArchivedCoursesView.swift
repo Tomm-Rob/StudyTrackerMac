@@ -26,7 +26,7 @@ struct ArchivedCoursesView: View {
                         description: Text("Courses you archive will remain available here with their study history.")
                     )
                     .frame(maxWidth: .infinity, minHeight: 280)
-                    .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+                    .appPanel()
                 } else {
                     LazyVGrid(
                         columns: [GridItem(.adaptive(minimum: 290, maximum: 430), spacing: 12)],
@@ -46,7 +46,7 @@ struct ArchivedCoursesView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text("Archived Courses")
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
+                .font(.system(size: 26, weight: .semibold, design: .default))
             Text("View archived course details or restore a course with all of its history.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -114,7 +114,7 @@ struct ArchivedCoursesView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+        .appPanel()
     }
 
     private func value(_ title: String, _ value: String) -> some View {

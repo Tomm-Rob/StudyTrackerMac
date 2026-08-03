@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct RootView: View {
@@ -31,6 +32,7 @@ struct RootView: View {
             }
         }
         .background(AppTheme.background(for: colorScheme))
+        .tint(AppTheme.accent)
         .onAppear {
             ApplicationIconManager.apply(for: colorScheme)
         }
@@ -49,7 +51,7 @@ private struct SidebarView: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Study Tracker")
-                    .font(.system(size: 21, weight: .semibold, design: .rounded))
+                    .font(.system(size: 21, weight: .semibold, design: .default))
                 Text("\(store.activeClasses.count)/\(StudyStore.maxClasses) classes")
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -119,7 +121,7 @@ private struct SidebarView: View {
             .disabled(store.isPersistenceLocked || store.activeClasses.count >= StudyStore.maxClasses)
             .padding([.horizontal, .bottom], 12)
         }
-        .background(.thinMaterial)
+        .background(AppTheme.sidebar)
     }
 }
 
@@ -159,12 +161,57 @@ private struct DetailView: View {
 
 enum AppTheme {
     static func background(for colorScheme: ColorScheme) -> Color {
-        if colorScheme == .dark {
-            return Color(nsColor: .windowBackgroundColor)
-        }
-        return Color(red: 246 / 255, green: 247 / 255, blue: 244 / 255)
+        colorScheme == .dark ? color(0x151718) : color(0xF6F7F4)
     }
 
-    static let panel = Color(nsColor: .controlBackgroundColor)
-    static let separator = Color(nsColor: .separatorColor)
+    static let panel = adaptive(light: 0xFFFFFF, dark: 0x202326)
+    static let sidebar = adaptive(light: 0xF0F2F3, dark: 0x292D30)
+    static let separator = adaptive(light: 0xDCE1E4, dark: 0x3A3E42)
+    static let accent = adaptive(light: 0x2563EB, dark: 0x78D5A3)
+
+    private static func adaptive(light: UInt32, dark: UInt32) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return nsColor(isDark ? dark : light)
+        })
+    }
+
+    private static func color(_ hex: UInt32) -> Color {
+        Color(nsColor: nsColor(hex))
+    }
+
+    private static func nsColor(_ hex: UInt32) -> NSColor {
+        NSColor(
+            srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: 1
+        )
+    }
+}
+
+private struct AppPanelModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content.background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(AppTheme.panel)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(AppTheme.separator, lineWidth: 0.75)
+                }
+                .shadow(
+                    color: .black.opacity(colorScheme == .dark ? 0.16 : 0.04),
+                    radius: colorScheme == .dark ? 2 : 3,
+                    y: 1
+                )
+        }
+    }
+}
+
+extension View {
+    func appPanel() -> some View {
+        modifier(AppPanelModifier())
+    }
 }

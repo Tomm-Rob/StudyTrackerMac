@@ -426,8 +426,8 @@ Open **Settings** from the sidebar.
 Choose:
 
 - **System:** Follow the Mac appearance
-- **Light:** Use the off-white light theme
-- **Dark:** Use the dark theme
+- **Light:** Use the crisp Studio Light theme
+- **Dark:** Use the graphite-and-mint Graphite Focus theme
 
 The app and Dock icon respond to the selected appearance.
 

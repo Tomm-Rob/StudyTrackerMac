@@ -84,7 +84,7 @@ struct PomodoroView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Pomodoro")
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
+                .font(.system(size: 26, weight: .semibold, design: .default))
             Text("Adjust your focus and break lengths, then log completed focus time to a class.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -112,7 +112,7 @@ struct PomodoroView: View {
 
                 VStack(spacing: 8) {
                     Text(timeString)
-                        .font(.system(size: 46, weight: .semibold, design: .rounded))
+                        .font(.system(size: 46, weight: .semibold, design: .default))
                         .monospacedDigit()
                     Text(mode.title)
                         .font(.headline)
@@ -152,7 +152,7 @@ struct PomodoroView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 
     private var logPicker: some View {
@@ -218,7 +218,7 @@ struct PomodoroView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text("\(completedFocusSessions)")
-                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .font(.system(size: 24, weight: .semibold, design: .default))
                     .monospacedDigit()
             }
 
@@ -230,7 +230,7 @@ struct PomodoroView: View {
         }
         .padding(16)
         .frame(minWidth: 220, maxWidth: .infinity, alignment: .topLeading)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 
     private var fullSeconds: Int {

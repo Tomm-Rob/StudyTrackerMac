@@ -142,7 +142,7 @@ struct InsightsView: View {
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text("Insights")
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
+                .font(.system(size: 26, weight: .semibold, design: .default))
             Text(rangeDescription)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -181,7 +181,7 @@ struct InsightsView: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 
     private func customDatePicker(_ title: String, selection: Binding<Date>) -> some View {
@@ -247,7 +247,7 @@ struct InsightsView: View {
             description: Text("Choose another date range or log a study session.")
         )
         .frame(maxWidth: .infinity, minHeight: 200)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 }
 
@@ -263,14 +263,14 @@ private struct InsightsMetricTile: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Text(value)
-                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .font(.system(size: 22, weight: .semibold, design: .default))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 }
 
@@ -315,7 +315,7 @@ private struct InsightsMessagesPanel: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 }
 
@@ -374,7 +374,7 @@ private struct CourseAnalyticsPanel: View {
             .frame(height: chartHeight)
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 
     private func updateHover(_ phase: HoverPhase, proxy: ChartProxy, geometry: GeometryProxy) {
@@ -442,7 +442,7 @@ private struct WeekdayPatternPanel: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 
     private func updateHover(_ phase: HoverPhase, proxy: ChartProxy, geometry: GeometryProxy) {
@@ -527,7 +527,7 @@ private struct HourlyPatternPanel: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 
     private func updateHover(_ phase: HoverPhase, proxy: ChartProxy, geometry: GeometryProxy) {

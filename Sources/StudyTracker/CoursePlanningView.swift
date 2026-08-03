@@ -196,7 +196,7 @@ struct CoursePlanningEditor: View {
             content()
         }
         .padding(14)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+        .appPanel()
     }
 
     private func optionalDateRow(
