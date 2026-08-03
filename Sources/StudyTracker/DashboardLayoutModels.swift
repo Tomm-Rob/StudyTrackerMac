@@ -137,7 +137,7 @@ enum DashboardCardRegistry {
             subtitle: "Study time by day",
             systemImage: "chart.bar",
             defaultSize: .large,
-            supportedSizes: [.large, .wide, .extraLarge]
+            supportedSizes: [.small, .large, .wide, .extraLarge]
         ),
         DashboardCardDefinition(
             id: "class-breakdown",
@@ -200,7 +200,7 @@ enum DashboardCardRegistry {
     static var defaultLayoutCards: [DashboardCardInstance] {
         let visibleCards = [
             defaultCard("total-time", size: .small),
-            defaultCard("daily-study", size: .large),
+            defaultCard("daily-study", size: .small),
             defaultCard("class-breakdown", size: .small),
             defaultCard("leaderboard", size: .small),
             defaultCard("local-insights", size: .small),
@@ -219,6 +219,14 @@ enum DashboardCardRegistry {
             }
 
         return visibleCards + hiddenCards
+    }
+
+    static var mixedSizeDefaultLayoutCards: [DashboardCardInstance] {
+        var cards = defaultLayoutCards
+        if let index = cards.firstIndex(where: { $0.kindID == "daily-study" }) {
+            cards[index].size = .large
+        }
+        return cards
     }
 
     static var previousDefaultLayoutCards: [DashboardCardInstance] {
@@ -278,6 +286,7 @@ struct DashboardLayoutService {
 
     func applyingUpdatedDefaults(to layout: DashboardLayout) -> DashboardLayout {
         let knownPreviousDefaults = [
+            DashboardCardRegistry.mixedSizeDefaultLayoutCards,
             DashboardCardRegistry.previousDefaultLayoutCards,
             DashboardCardRegistry.legacyDefaultLayoutCards
         ]
@@ -353,6 +362,22 @@ struct DashboardLayoutService {
             return layout
         }
         cards[index].size = size
+        return DashboardLayout(cards: cards)
+    }
+
+    func makingVisibleCardsUniform(_ layout: DashboardLayout) -> DashboardLayout {
+        let visibleCards = layout.cards.filter(\.isVisible)
+        guard !visibleCards.isEmpty,
+              visibleCards.allSatisfy({ card in
+                  DashboardCardRegistry.definition(for: card.kindID)?.supportedSizes.contains(.small) == true
+              }) else {
+            return layout
+        }
+
+        var cards = layout.cards
+        for index in cards.indices where cards[index].isVisible {
+            cards[index].size = .small
+        }
         return DashboardLayout(cards: cards)
     }
 

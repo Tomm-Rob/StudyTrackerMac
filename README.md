@@ -194,7 +194,7 @@ The Dashboard is a responsive collection of cards. Its layout, card sizes, order
 
 ### Default cards
 
-The default layout includes:
+The default layout uses equal compact rectangles in up to three columns and includes:
 
 - Total Study Time
 - Daily Study Time
@@ -214,7 +214,7 @@ Additional cards available from the gallery include:
 
 ### Change the date range
 
-Use the range control at the top of the Dashboard to show 7, 14, 30, or 90 days in the daily bar chart.
+Use the outlined range menu at the top of the Dashboard to show 7, 14, 30, or 90 days in the daily bar chart.
 
 ### Read chart values
 
@@ -230,14 +230,15 @@ Tooltips follow the pointer and move around chart edges so neighboring cards do 
 
 1. Click **Edit Dashboard**.
 2. Drag a card to another position, or use its left and right arrow buttons.
-3. Use the resize button to select a supported size.
-4. Use the hide button to remove a card from the visible layout.
-5. Click **Add Card** to restore a hidden card.
-6. Click **Done** when finished.
+3. Click **Uniform Cards** to make all compatible visible cards equal compact rectangles.
+4. Use the resize button to select a supported size.
+5. Use the hide button to remove a card from the visible layout.
+6. Click **Add Card** to restore a hidden card.
+7. Click **Done** when finished.
 
 The available sizes are Small, Medium, Large, Wide, and Extra Large. Each card only offers sizes that work with its content.
 
-Use the reset button in Edit Dashboard mode to restore the default cards, sizes, and order.
+Use the reset button in Edit Dashboard mode to restore the default equal-card layout, sizes, and order. Uniform Cards is disabled when a visible functional card needs a larger size.
 
 ## Goals
 
