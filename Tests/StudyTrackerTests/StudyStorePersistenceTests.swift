@@ -34,6 +34,34 @@ final class StudyStorePersistenceTests: XCTestCase {
         XCTAssertEqual(reopenedStore.data.classes.map(\.name), ["Protected Course"])
     }
 
+    func testClassTotalsCanIncludeArchivedCourses() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let activeClass = StudyClass(name: "Active", colorHex: "#2563EB")
+        let archivedClass = StudyClass(
+            name: "Archived",
+            colorHex: "#22C55E",
+            isArchived: true,
+            archivedAt: Date()
+        )
+        let store = StudyStore(saveDirectory: directory)
+        store.data.classes = [activeClass, archivedClass]
+        store.data.sessions = [
+            StudySession(classID: activeClass.id, startedAt: Date(), duration: 1_800),
+            StudySession(classID: archivedClass.id, startedAt: Date(), duration: 3_600)
+        ]
+
+        XCTAssertEqual(
+            store.classTotals(includingArchived: false).map(\.studyClass.name),
+            ["Active"]
+        )
+        XCTAssertEqual(
+            store.classTotals(includingArchived: true).map(\.studyClass.name),
+            ["Archived", "Active"]
+        )
+    }
+
     private func temporaryDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("StudyTrackerPersistenceTests-\(UUID().uuidString)")

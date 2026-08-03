@@ -509,8 +509,10 @@ private struct DashboardCardHost<Content: View>: View {
 
     private var cardBody: some View {
         content
+            .environment(\.isDashboardCardContent, true)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .clipped()
+            .appPanel()
             .overlay(alignment: .topTrailing) {
                 if isEditing {
                     editToolbar
@@ -1030,10 +1032,14 @@ private struct ClassDonutChart: View {
 
     private var chartWidth: CGFloat {
         switch size {
-        case .small: 88
-        case .medium: 110
-        case .large, .wide, .extraLarge: 170
+        case .small: 104
+        case .medium: 132
+        case .large, .wide, .extraLarge: 190
         }
+    }
+
+    private var ringWidth: CGFloat {
+        size == .small ? 12 : 16
     }
 
     private var maximumLegendRows: Int {
@@ -1049,8 +1055,18 @@ private struct ClassDonutChart: View {
         let totalSeconds = totals.reduce(0) { $0 + $1.seconds }
 
         VStack(alignment: .leading, spacing: size == .small ? 7 : 10) {
-            Text("Time by Class")
-                .font(size == .small ? .callout.weight(.semibold) : .headline)
+            HStack(spacing: 8) {
+                Text("Time by Class")
+                    .font(size == .small ? .callout.weight(.semibold) : .headline)
+
+                Spacer(minLength: 4)
+
+                if !totals.isEmpty {
+                    Text("\(totals.count) classes")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             if totals.isEmpty {
                 Label("No class time yet", systemImage: "chart.pie")
@@ -1058,11 +1074,17 @@ private struct ClassDonutChart: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                HStack(spacing: size == .small ? 9 : 14) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: size == .small ? 12 : 16) {
+                        donutChart(totals: totals, totalSeconds: totalSeconds)
+                            .frame(width: chartWidth, height: chartWidth)
+
+                        donutLegend(totals: totals, totalSeconds: totalSeconds)
+                    }
+
                     donutChart(totals: totals, totalSeconds: totalSeconds)
                         .frame(width: chartWidth, height: chartWidth)
-
-                    donutLegend(totals: totals, totalSeconds: totalSeconds)
+                        .frame(maxWidth: .infinity)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
@@ -1104,22 +1126,26 @@ private struct ClassDonutChart: View {
         totalSeconds: TimeInterval
     ) -> some View {
         ZStack(alignment: .topLeading) {
+            Circle()
+                .stroke(AppTheme.separator.opacity(0.55), lineWidth: ringWidth)
+                .padding(ringWidth / 2)
+
             Chart(totals) { total in
                 SectorMark(
                     angle: .value("Hours", total.seconds.hours),
-                    innerRadius: .ratio(0.62),
-                    angularInset: 1.5
+                    innerRadius: .ratio(0.68),
+                    angularInset: 1
                 )
                 .foregroundStyle(Color(hex: total.studyClass.colorHex))
-                .cornerRadius(3)
+                .cornerRadius(2)
             }
             .chartLegend(.hidden)
             .overlay {
-                VStack(spacing: 0) {
+                VStack(spacing: 1) {
                     Text(totalSeconds.compactDuration)
-                        .font(size == .small ? .caption2.weight(.semibold) : .caption.weight(.semibold))
+                        .font(size == .small ? .caption.weight(.semibold) : .callout.weight(.semibold))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                        .minimumScaleFactor(0.72)
                     Text("Total")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -1136,7 +1162,7 @@ private struct ClassDonutChart: View {
                                 phase,
                                 geometry: geometry,
                                 totals: totals,
-                                innerRadiusRatio: 0.62
+                                innerRadiusRatio: 0.68
                             )
                         }
                 }
@@ -1177,8 +1203,7 @@ private struct ClassDonutChart: View {
     }
 }
 
-private struct ClassOverviewChart:
- View {
+private struct ClassOverviewChart: View {
     @EnvironmentObject private var store: StudyStore
     @State private var hoverTooltip: ChartHoverTooltip?
 
@@ -1267,6 +1292,7 @@ private struct ClassOverviewChart:
 
 private struct ClassLeaderboard: View {
     @EnvironmentObject private var store: StudyStore
+    @State private var scope = LeaderboardScope.overall
     let size: DashboardCardSize
 
     private var maximumRows: Int? {
@@ -1278,22 +1304,32 @@ private struct ClassLeaderboard: View {
     }
 
     var body: some View {
-        let totals = store.classTotals()
+        let totals = store.classTotals(includingArchived: scope == .overall)
         let visibleTotals = maximumRows.map { Array(totals.prefix($0)) } ?? totals
 
         VStack(alignment: .leading, spacing: size == .small ? 5 : 8) {
-            Text("Leaderboard")
-                .font(size == .small ? .callout.weight(.semibold) : .headline)
+            HStack(spacing: 8) {
+                Text("Leaderboard")
+                    .font(size == .small ? .callout.weight(.semibold) : .headline)
+
+                Spacer(minLength: 4)
+
+                Picker("Courses", selection: $scope) {
+                    ForEach(LeaderboardScope.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .controlSize(.mini)
+                .frame(width: size == .small ? 108 : 132)
+            }
 
             if totals.isEmpty {
-                if size == .small || size == .medium {
-                    Label("No rankings", systemImage: "list.number")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    EmptyChartState(systemImage: "list.number", title: "No ranked classes yet")
-                }
+                Label(scope == .overall ? "No rankings" : "No active rankings", systemImage: "list.number")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(visibleTotals.enumerated()), id: \.element.id) { index, total in
@@ -1310,7 +1346,14 @@ private struct ClassLeaderboard: View {
                             Text(total.studyClass.name)
                                 .lineLimit(1)
 
-                            Spacer()
+                            if total.studyClass.isArchived {
+                                Image(systemName: "archivebox")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .help("Archived course")
+                            }
+
+                            Spacer(minLength: 4)
 
                             Text(total.seconds.compactDuration)
                                 .foregroundStyle(.secondary)
@@ -1328,6 +1371,20 @@ private struct ClassLeaderboard: View {
         }
         .padding(size == .small ? 10 : 12)
         .appPanel()
+    }
+}
+
+private enum LeaderboardScope: String, CaseIterable, Identifiable {
+    case active
+    case overall
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .active: "Active"
+        case .overall: "Overall"
+        }
     }
 }
 
