@@ -117,7 +117,7 @@ private struct SidebarView: View {
                 Label("Add Class", systemImage: "plus")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bordered)
             .disabled(store.isPersistenceLocked || store.activeClasses.count >= StudyStore.maxClasses)
             .padding([.horizontal, .bottom], 12)
         }

@@ -135,7 +135,7 @@ struct DashboardView: View {
 
                 StudySessionTimer(classID: classID)
                 GoalsSection(classID: classID, maximumVisible: 5)
-                DailyBarChart(classID: classID, daysBack: daysBack)
+                DailyBarChart(classID: classID, daysBack: daysBack, compact: false)
                     .frame(minHeight: 250)
                 SessionEditor(classID: classID)
                 SessionList(classID: classID, editingSession: $editingSession)
@@ -222,6 +222,14 @@ struct DashboardView: View {
                 }
 
                 Button {
+                    makeCardsUniform()
+                } label: {
+                    Label("Uniform Cards", systemImage: "rectangle.grid.3x2")
+                }
+                .disabled(!canUseUniformCards)
+                .help("Make all visible cards equal compact rectangles")
+
+                Button {
                     isConfirmingReset = true
                 } label: {
                     Image(systemName: "arrow.counterclockwise")
@@ -231,7 +239,7 @@ struct DashboardView: View {
                 Button("Done") {
                     isEditingDashboard = false
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
             }
         } else {
             Button {
@@ -256,27 +264,32 @@ struct DashboardView: View {
     }
 
     private var rangePicker: some View {
-        Picker("Range", selection: $daysBack) {
-            Text("7 days").tag(7)
-            Text("14 days").tag(14)
-            Text("30 days").tag(30)
-            Text("90 days").tag(90)
-        }
-        .labelsHidden()
-        .pickerStyle(.segmented)
-        .frame(width: 300)
+        rangeMenu
     }
 
     private var compactRangePicker: some View {
-        Picker("Range", selection: $daysBack) {
-            Text("7 days").tag(7)
-            Text("14 days").tag(14)
-            Text("30 days").tag(30)
-            Text("90 days").tag(90)
+        rangeMenu
+            .controlSize(.small)
+    }
+
+    private var rangeMenu: some View {
+        Menu {
+            ForEach([7, 14, 30, 90], id: \.self) { range in
+                Button {
+                    daysBack = range
+                } label: {
+                    if daysBack == range {
+                        Label("\(range) days", systemImage: "checkmark")
+                    } else {
+                        Text("\(range) days")
+                    }
+                }
+            }
+        } label: {
+            Label("\(daysBack) days", systemImage: "calendar")
         }
-        .labelsHidden()
-        .pickerStyle(.menu)
-        .frame(width: 105)
+        .buttonStyle(.bordered)
+        .fixedSize()
     }
 
     private var visibleDashboardCards: [DashboardCardInstance] {
@@ -300,7 +313,7 @@ struct DashboardView: View {
         case "study-timer":
             StudySessionTimer(classID: nil)
         case "daily-study":
-            DailyBarChart(classID: nil, daysBack: daysBack)
+            DailyBarChart(classID: nil, daysBack: daysBack, compact: card.size == .small)
         case "class-breakdown":
             ClassDonutChart(size: card.size)
         case "class-overview":
@@ -350,6 +363,19 @@ struct DashboardView: View {
         )
     }
 
+    private var canUseUniformCards: Bool {
+        let cards = visibleDashboardCards
+        return !cards.isEmpty && cards.allSatisfy { card in
+            DashboardCardRegistry.definition(for: card.kindID)?.supportedSizes.contains(.small) == true
+        }
+    }
+
+    private func makeCardsUniform() {
+        store.data.dashboardLayout = layoutService.makingVisibleCardsUniform(
+            store.data.dashboardLayout
+        )
+    }
+
     private func moveCard(_ sourceID: String, before targetID: String) {
         store.data.dashboardLayout = layoutService.move(
             sourceID,
@@ -392,7 +418,7 @@ private extension View {
 
 private struct DashboardResponsiveGrid: Layout {
     let spacing: CGFloat
-    private let rowHeight: CGFloat = 130
+    private let rowHeight: CGFloat = 170
     private let service = DashboardLayoutService()
 
     func sizeThatFits(
@@ -559,7 +585,7 @@ private struct DashboardCardGallery: View {
                 Button("Done") {
                     dismiss()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
             }
 
             if hiddenDefinitions.isEmpty {
@@ -832,6 +858,7 @@ private struct DailyBarChart: View {
     @EnvironmentObject private var store: StudyStore
     let classID: UUID?
     let daysBack: Int
+    let compact: Bool
     @State private var hoverTooltip: ChartHoverTooltip?
 
     private var barColor: Color {
@@ -852,9 +879,9 @@ private struct DailyBarChart: View {
         let classStyleDomain = styledClasses.map { $0.id.uuidString }
         let classStyleRange = styledClasses.map { Color(hex: $0.colorHex) }
 
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: compact ? 6 : 10) {
             Text("Daily Study Time")
-                .font(.headline)
+                .font(compact ? .callout.weight(.semibold) : .headline)
 
             if totals.allSatisfy({ $0.seconds <= 0 }) {
                 EmptyChartState(systemImage: "chart.bar", title: "No study time logged yet")
@@ -884,9 +911,9 @@ private struct DailyBarChart: View {
                     }
                     .chartForegroundStyleScale(domain: classStyleDomain, range: classStyleRange)
                     .chartLegend(.hidden)
-                    .chartYAxisLabel("Hours")
+                    .chartYAxisLabel(compact ? "" : "Hours")
                     .chartXAxis {
-                        AxisMarks(values: .stride(by: .day, count: daysBack > 30 ? 14 : 2)) {
+                        AxisMarks(values: .stride(by: .day, count: compact ? max(2, daysBack / 3) : (daysBack > 30 ? 14 : 2))) {
                             AxisGridLine()
                             AxisTick()
                             AxisValueLabel(format: .dateTime.month(.abbreviated).day())
@@ -915,7 +942,7 @@ private struct DailyBarChart: View {
                 }
             }
         }
-        .padding(12)
+        .padding(compact ? 10 : 12)
         .appPanel()
     }
 
@@ -1001,87 +1028,122 @@ private struct ClassDonutChart: View {
     @State private var hoverTooltip: ChartHoverTooltip?
     let size: DashboardCardSize
 
+    private var chartWidth: CGFloat {
+        switch size {
+        case .small: 88
+        case .medium: 110
+        case .large, .wide, .extraLarge: 170
+        }
+    }
+
+    private var maximumLegendRows: Int {
+        switch size {
+        case .small: 3
+        case .medium: 4
+        case .large, .wide, .extraLarge: 6
+        }
+    }
+
     var body: some View {
         let totals = store.classTotals()
+        let totalSeconds = totals.reduce(0) { $0 + $1.seconds }
 
-        Group {
-            if size == .medium {
-                HStack(spacing: 10) {
-                    chartHeading(totals: totals)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    donutContent(totals: totals)
-                        .aspectRatio(1, contentMode: .fit)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
+        VStack(alignment: .leading, spacing: size == .small ? 7 : 10) {
+            Text("Time by Class")
+                .font(size == .small ? .callout.weight(.semibold) : .headline)
+
+            if totals.isEmpty {
+                Label("No class time yet", systemImage: "chart.pie")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                VStack(alignment: .leading, spacing: size == .small ? 6 : 12) {
-                    chartHeading(totals: totals)
-                    donutContent(totals: totals)
+                HStack(spacing: size == .small ? 9 : 14) {
+                    donutChart(totals: totals, totalSeconds: totalSeconds)
+                        .frame(width: chartWidth, height: chartWidth)
+
+                    donutLegend(totals: totals, totalSeconds: totalSeconds)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
         }
         .padding(size == .small ? 10 : 12)
         .appPanel()
     }
 
-    private func chartHeading(totals: [ClassTotal]) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(size == .small ? "Time by Class" : "Total Time by Class")
-                .font(size == .small ? .callout.weight(.semibold) : .headline)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+    private func donutLegend(totals: [ClassTotal], totalSeconds: TimeInterval) -> some View {
+        VStack(alignment: .leading, spacing: size == .small ? 4 : 7) {
+            ForEach(Array(totals.prefix(maximumLegendRows))) { total in
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color(hex: total.studyClass.colorHex))
+                        .frame(width: 7, height: 7)
 
-            if size == .medium {
-                Text(totals.reduce(0) { $0 + $1.seconds }.compactDuration)
-                    .font(.callout)
+                    Text(total.studyClass.name)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 2)
+
+                    Text((total.seconds / totalSeconds).formatted(.percent.precision(.fractionLength(0))))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+
+            if totals.count > maximumLegendRows {
+                Text("+\(totals.count - maximumLegendRows) more")
                     .foregroundStyle(.secondary)
-                    .monospacedDigit()
             }
         }
+        .font(size == .small ? .caption2 : .caption)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder
-    private func donutContent(totals: [ClassTotal]) -> some View {
-        if totals.isEmpty {
-            if size == .small || size == .medium {
-                Label("No data", systemImage: "chart.pie")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                EmptyChartState(systemImage: "chart.pie", title: "No class totals yet")
+    private func donutChart(
+        totals: [ClassTotal],
+        totalSeconds: TimeInterval
+    ) -> some View {
+        ZStack(alignment: .topLeading) {
+            Chart(totals) { total in
+                SectorMark(
+                    angle: .value("Hours", total.seconds.hours),
+                    innerRadius: .ratio(0.62),
+                    angularInset: 1.5
+                )
+                .foregroundStyle(Color(hex: total.studyClass.colorHex))
+                .cornerRadius(3)
             }
-        } else {
-            ZStack(alignment: .topLeading) {
-                Chart(totals) { total in
-                    SectorMark(
-                        angle: .value("Hours", total.seconds.hours),
-                        innerRadius: .ratio(0.58),
-                        angularInset: 2
-                    )
-                    .foregroundStyle(Color(hex: total.studyClass.colorHex))
-                    .cornerRadius(4)
+            .chartLegend(.hidden)
+            .overlay {
+                VStack(spacing: 0) {
+                    Text(totalSeconds.compactDuration)
+                        .font(size == .small ? .caption2.weight(.semibold) : .caption.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text("Total")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-                .chartLegend(.hidden)
-                .chartOverlay { _ in
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(.clear)
-                            .contentShape(Rectangle())
-                            .onContinuousHover { phase in
-                                updateCircleHover(
-                                    phase,
-                                    geometry: geometry,
-                                    totals: totals,
-                                    innerRadiusRatio: 0.58
-                                )
-                            }
-                    }
+                .allowsHitTesting(false)
+            }
+            .chartOverlay { _ in
+                GeometryReader { geometry in
+                    Rectangle()
+                        .fill(.clear)
+                        .contentShape(Rectangle())
+                        .onContinuousHover { phase in
+                            updateCircleHover(
+                                phase,
+                                geometry: geometry,
+                                totals: totals,
+                                innerRadiusRatio: 0.62
+                            )
+                        }
                 }
+            }
 
-                if let hoverTooltip {
-                    HoverTooltipOverlay(tooltip: hoverTooltip)
-                }
+            if let hoverTooltip {
+                HoverTooltipOverlay(tooltip: hoverTooltip)
             }
         }
     }
@@ -1115,7 +1177,8 @@ private struct ClassDonutChart: View {
     }
 }
 
-private struct ClassOverviewChart: View {
+private struct ClassOverviewChart:
+ View {
     @EnvironmentObject private var store: StudyStore
     @State private var hoverTooltip: ChartHoverTooltip?
 

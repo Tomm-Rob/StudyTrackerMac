@@ -48,6 +48,14 @@ final class DashboardLayoutServiceTests: XCTestCase {
         XCTAssertEqual(service.recommendedColumnCount(forAvailableWidth: 1_400), 3)
     }
 
+    func testDailyChartSupportsUniformCompactSize() throws {
+        let definition = try XCTUnwrap(
+            DashboardCardRegistry.definition(for: "daily-study")
+        )
+
+        XCTAssertTrue(definition.supportedSizes.contains(.small))
+    }
+
     func testDonutCardSupportsCompactSizesAndDefaultsToSmall() throws {
         let definition = try XCTUnwrap(
             DashboardCardRegistry.definition(for: "class-breakdown")
@@ -84,7 +92,7 @@ final class DashboardLayoutServiceTests: XCTestCase {
         XCTAssertTrue(definition.supportedSizes.contains(.small))
     }
 
-    func testDefaultLayoutMatchesRequestedThreeColumnArrangement() {
+    func testDefaultLayoutUsesUniformThreeColumnRectangles() {
         let visibleCards = DashboardCardRegistry.defaultLayoutCards.filter(\.isVisible)
         XCTAssertEqual(
             visibleCards.map(\.kindID),
@@ -99,7 +107,7 @@ final class DashboardLayoutServiceTests: XCTestCase {
         )
         XCTAssertEqual(
             visibleCards.map(\.size),
-            [.small, .large, .small, .small, .small, .small]
+            [.small, .small, .small, .small, .small, .small]
         )
 
         let placements = service.placements(for: visibleCards, columnCount: 3)
@@ -115,33 +123,33 @@ final class DashboardLayoutServiceTests: XCTestCase {
                 instanceID: "dashboard.daily-study",
                 row: 0,
                 column: 1,
-                columnSpan: 2,
-                rowSpan: 2
+                columnSpan: 1,
+                rowSpan: 1
             ),
             DashboardGridPlacement(
                 instanceID: "dashboard.class-breakdown",
+                row: 0,
+                column: 2,
+                columnSpan: 1,
+                rowSpan: 1
+            ),
+            DashboardGridPlacement(
+                instanceID: "dashboard.leaderboard",
                 row: 1,
                 column: 0,
                 columnSpan: 1,
                 rowSpan: 1
             ),
             DashboardGridPlacement(
-                instanceID: "dashboard.leaderboard",
-                row: 2,
-                column: 0,
-                columnSpan: 1,
-                rowSpan: 1
-            ),
-            DashboardGridPlacement(
                 instanceID: "dashboard.local-insights",
-                row: 2,
+                row: 1,
                 column: 1,
                 columnSpan: 1,
                 rowSpan: 1
             ),
             DashboardGridPlacement(
                 instanceID: "dashboard.goals",
-                row: 2,
+                row: 1,
                 column: 2,
                 columnSpan: 1,
                 rowSpan: 1
@@ -149,12 +157,46 @@ final class DashboardLayoutServiceTests: XCTestCase {
         ])
     }
 
+    func testUniformCardsResizesSupportedVisibleCardsAndPreservesHiddenCards() {
+        let layout = DashboardLayout(cards: [
+            DashboardCardInstance(id: "dashboard.daily-study", kindID: "daily-study", size: .large),
+            DashboardCardInstance(id: "dashboard.goals", kindID: "goals", size: .wide),
+            DashboardCardInstance(
+                id: "dashboard.recent-sessions",
+                kindID: "recent-sessions",
+                size: .extraLarge,
+                isVisible: false
+            )
+        ])
+
+        let uniform = service.makingVisibleCardsUniform(layout)
+
+        XCTAssertEqual(uniform.cards[0].size, .small)
+        XCTAssertEqual(uniform.cards[1].size, .small)
+        XCTAssertEqual(uniform.cards[2].size, .extraLarge)
+    }
+
+    func testUniformCardsLeavesUnsupportedVisibleLayoutUnchanged() {
+        let layout = DashboardLayout(cards: [
+            DashboardCardInstance(id: "dashboard.quick-log", kindID: "quick-log", size: .wide)
+        ])
+
+        XCTAssertEqual(service.makingVisibleCardsUniform(layout), layout)
+    }
+
     func testOldDefaultsReceiveNewLayoutWithoutChangingCustomLayouts() {
+        let mixedSizeDefault = DashboardLayout(
+            cards: DashboardCardRegistry.mixedSizeDefaultLayoutCards
+        )
         let previousDefault = DashboardLayout(
             cards: DashboardCardRegistry.previousDefaultLayoutCards
         )
         let legacyDefault = DashboardLayout(
             cards: DashboardCardRegistry.legacyDefaultLayoutCards
+        )
+        XCTAssertEqual(
+            service.applyingUpdatedDefaults(to: mixedSizeDefault),
+            DashboardLayout()
         )
         XCTAssertEqual(
             service.applyingUpdatedDefaults(to: previousDefault),
