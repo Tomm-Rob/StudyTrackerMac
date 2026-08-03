@@ -18,7 +18,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Settings")
-                        .font(.system(size: 30, weight: .semibold, design: .rounded))
+                        .font(.system(size: 30, weight: .semibold, design: .default))
                     Text("Adjust appearance, local data storage, and chart colors.")
                         .foregroundStyle(.secondary)
                 }
@@ -56,7 +56,7 @@ struct SettingsView: View {
                     }
                 }
                 .padding(16)
-                .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .appPanel()
 
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Chart Colors")
@@ -76,7 +76,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(16)
-                .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .appPanel()
 
                 Spacer(minLength: 0)
             }
@@ -101,7 +101,7 @@ struct SettingsView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 
     private func chooseSaveDirectory() {

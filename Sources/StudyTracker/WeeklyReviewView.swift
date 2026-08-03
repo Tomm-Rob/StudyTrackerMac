@@ -73,7 +73,7 @@ struct WeeklyReviewView: View {
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text("Weekly Review")
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
+                .font(.system(size: 26, weight: .semibold, design: .default))
             Text(weekRangeDescription)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -247,7 +247,7 @@ struct WeeklyReviewView: View {
             description: Text("Review another week or log a study session.")
         )
         .frame(maxWidth: .infinity, minHeight: 190)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 
     private func moveWeek(by offset: Int) {
@@ -278,14 +278,14 @@ private struct WeeklyMetricTile: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Text(value)
-                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .font(.system(size: 22, weight: .semibold, design: .default))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 }
 
@@ -320,7 +320,7 @@ private struct WeeklyHighlightTile: View {
         }
         .padding(12)
         .frame(minWidth: 180, maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 }
 
@@ -345,7 +345,7 @@ private struct WeeklyInsightsPanel: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 }
 
@@ -369,7 +369,7 @@ private struct WeeklyTargetPanel: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 
     private func targetRow(_ title: String, value: String) -> some View {

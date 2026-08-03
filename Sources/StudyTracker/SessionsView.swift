@@ -44,7 +44,7 @@ struct StudySessionTimer: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
         .onAppear {
             selectedClassID = effectiveClassID
         }
@@ -79,7 +79,7 @@ struct StudySessionTimer: View {
                 Text("Study Timer")
                     .font(.headline)
                 Text(TimeInterval(elapsedSeconds).timerDuration)
-                    .font(.system(size: 30, weight: .semibold, design: .rounded))
+                    .font(.system(size: 30, weight: .semibold, design: .default))
                     .monospacedDigit()
             }
         }
@@ -315,7 +315,7 @@ struct SessionEditor: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
         .onAppear {
             selectedClassID = effectiveClassID
         }
@@ -447,7 +447,7 @@ struct SessionList: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 }
 

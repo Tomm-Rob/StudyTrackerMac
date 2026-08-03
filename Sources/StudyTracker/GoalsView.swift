@@ -25,7 +25,7 @@ struct GoalsView: View {
                         description: Text("Add a daily, weekly, or class goal to begin tracking progress.")
                     )
                     .frame(maxWidth: .infinity, minHeight: 260)
-                    .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+                    .appPanel()
                 } else {
                     LazyVGrid(
                         columns: [GridItem(.adaptive(minimum: 290, maximum: 430), spacing: 12)],
@@ -74,7 +74,7 @@ struct GoalsView: View {
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text("Goals")
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
+                .font(.system(size: 26, weight: .semibold, design: .default))
             Text("Track current progress and class pacing.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -117,7 +117,7 @@ struct GoalsView: View {
             .padding(.top, 6)
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+        .appPanel()
     }
 
     private func goalSort(_ lhs: StudyGoal, _ rhs: StudyGoal) -> Bool {
@@ -198,7 +198,7 @@ struct GoalsSection: View {
             }
         }
         .padding(compact ? 10 : 12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
         .sheet(isPresented: $isAddingGoal) {
             GoalEditorSheet(presetCourseID: classID)
         }
@@ -309,7 +309,7 @@ private struct GoalDetailCard: View {
 
             HStack(alignment: .firstTextBaseline) {
                 Text(progress.studiedDuration.compactDuration)
-                    .font(.system(size: 23, weight: .semibold, design: .rounded))
+                    .font(.system(size: 23, weight: .semibold, design: .default))
                     .monospacedDigit()
                 Text("of \(progress.targetDuration.compactDuration)")
                     .foregroundStyle(.secondary)
@@ -329,7 +329,7 @@ private struct GoalDetailCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+        .appPanel()
     }
 
     private var title: String {

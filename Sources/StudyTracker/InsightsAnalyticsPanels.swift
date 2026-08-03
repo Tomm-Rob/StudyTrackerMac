@@ -18,7 +18,7 @@ struct PeriodComparisonPanel: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+        .appPanel()
     }
 
     private var comparisonHeader: some View {
@@ -158,7 +158,7 @@ struct CourseAnalyticsDetailsPanel: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+        .appPanel()
     }
 
     private func detail(_ title: String, _ value: String) -> some View {
@@ -234,7 +234,7 @@ struct TimeWindowAnalyticsPanel: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+        .appPanel()
     }
 
     private func analyticsValue(_ title: String, _ value: String) -> some View {
@@ -282,7 +282,7 @@ struct FocusByWeekdayPanel: View {
             .frame(minHeight: 210)
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+        .appPanel()
     }
 }
 
@@ -306,7 +306,7 @@ struct ConsistencySummaryPanel: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+        .appPanel()
     }
 
     private func value(_ title: String, _ value: String) -> some View {
@@ -349,7 +349,7 @@ struct StudyHeatmapPanel: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+        .appPanel()
     }
 
     private func color(for seconds: TimeInterval) -> Color {
@@ -393,6 +393,6 @@ struct WeeklyTrendPanel: View {
             .frame(minHeight: 220)
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+        .appPanel()
     }
 }

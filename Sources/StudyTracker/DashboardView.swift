@@ -245,7 +245,7 @@ struct DashboardView: View {
     private func titleBlock(showSubtitle: Bool = true) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
+                .font(.system(size: 26, weight: .semibold, design: .default))
             if showSubtitle {
                 Text("Log time, review daily progress, and keep class totals in view.")
                     .font(.callout)
@@ -593,7 +593,7 @@ private struct DashboardCardGallery: View {
                             }
                             .padding(12)
                             .frame(maxWidth: .infinity, minHeight: 145, alignment: .topLeading)
-                            .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8))
+                            .appPanel()
                         }
                     }
                 }
@@ -646,7 +646,7 @@ private struct DashboardRecentSessions: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 }
 
@@ -697,7 +697,7 @@ private struct DashboardInsightsCard: View {
             }
         }
         .padding(compact ? 10 : 12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 }
 
@@ -761,7 +761,7 @@ private struct ClassHeader: View {
         HStack(spacing: 10) {
             TextField("Class Name", text: $store.data.classes[index].name)
                 .textFieldStyle(.plain)
-                .font(.system(size: 24, weight: .semibold, design: .rounded))
+                .font(.system(size: 24, weight: .semibold, design: .default))
 
             ColorPicker(
                 "Class color",
@@ -818,13 +818,13 @@ private struct MetricTile: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.system(size: 23, weight: .semibold, design: .rounded))
+                .font(.system(size: 23, weight: .semibold, design: .default))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 }
 
@@ -916,7 +916,7 @@ private struct DailyBarChart: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 
     private func updateBarHover(
@@ -1021,7 +1021,7 @@ private struct ClassDonutChart: View {
             }
         }
         .padding(size == .small ? 10 : 12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 
     private func chartHeading(totals: [ClassTotal]) -> some View {
@@ -1170,7 +1170,7 @@ private struct ClassOverviewChart: View {
             }
         }
         .padding(12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 
     private func updateCircleHover(
@@ -1264,7 +1264,7 @@ private struct ClassLeaderboard: View {
             }
         }
         .padding(size == .small ? 10 : 12)
-        .background(AppTheme.panel, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .appPanel()
     }
 }
 
