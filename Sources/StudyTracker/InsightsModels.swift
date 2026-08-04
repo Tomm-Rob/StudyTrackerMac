@@ -203,6 +203,23 @@ struct GeneratedInsight: Identifiable, Equatable {
     let explanation: String
     let dateRangeDescription: String
     let destination: GeneratedInsightDestination?
+    let courseID: UUID?
+
+    init(
+        id: String,
+        title: String,
+        explanation: String,
+        dateRangeDescription: String,
+        destination: GeneratedInsightDestination?,
+        courseID: UUID? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.explanation = explanation
+        self.dateRangeDescription = dateRangeDescription
+        self.destination = destination
+        self.courseID = courseID
+    }
 }
 
 struct InsightsSnapshot: Equatable {

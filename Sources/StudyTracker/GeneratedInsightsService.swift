@@ -203,7 +203,8 @@ struct GeneratedInsightsService {
             title: "\(result.0.name) may need attention",
             explanation: "You have not studied \(result.0.name) in \(result.2) days. Its last session was \(shortDate(result.1)).",
             dateRangeDescription: "As of \(shortDate(date))",
-            destination: .courses
+            destination: .courses,
+            courseID: result.0.id
         )
     }
 
@@ -243,7 +244,8 @@ struct GeneratedInsightsService {
             title: "Behind weekly pace",
             explanation: "\(behind.0.name) is \(behind.1.compactDuration) behind its expected pace for this point in the week.",
             dateRangeDescription: "Week of \(shortDate(week.start))",
-            destination: .courses
+            destination: .courses,
+            courseID: behind.0.id
         )
     }
 
@@ -300,7 +302,8 @@ struct GeneratedInsightsService {
             title: "Projected completion for \(result.0.name)",
             explanation: "At your recent study rate, you are projected to reach the planned hours on \(shortDate(result.1)), \(timing).",
             dateRangeDescription: "Pace based on the last 14 days",
-            destination: .courses
+            destination: .courses,
+            courseID: result.0.id
         )
     }
 
@@ -342,7 +345,8 @@ struct GeneratedInsightsService {
             title: "\(top.name) leads your study time",
             explanation: "\(top.name) represents \(percentage)% of your study time in this range.",
             dateRangeDescription: range,
-            destination: .courses
+            destination: .courses,
+            courseID: top.courseID
         )
     }
 
@@ -363,7 +367,8 @@ struct GeneratedInsightsService {
             title: "Study time is spread unevenly",
             explanation: "You studied across \(studied.count) courses, but \(least.name) received only \(percentage)% of the total time.",
             dateRangeDescription: range,
-            destination: .courses
+            destination: .courses,
+            courseID: least.courseID
         )
     }
 

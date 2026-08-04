@@ -101,6 +101,14 @@ final class GeneratedInsightsServiceTests: XCTestCase {
 
         XCTAssertTrue(insights.contains { $0.id == "inactive-course-\(courseID.uuidString)" })
         XCTAssertTrue(insights.contains { $0.id == "weekly-target-\(courseID.uuidString)" })
+        XCTAssertEqual(
+            insights.first { $0.id == "inactive-course-\(courseID.uuidString)" }?.courseID,
+            courseID
+        )
+        XCTAssertEqual(
+            insights.first { $0.id == "weekly-target-\(courseID.uuidString)" }?.courseID,
+            courseID
+        )
         XCTAssertTrue(insights.allSatisfy { !$0.dateRangeDescription.isEmpty })
     }
 
@@ -120,7 +128,8 @@ final class GeneratedInsightsServiceTests: XCTestCase {
 
         let insights = generate(classes: [studyClass], sessions: sessions)
 
-        XCTAssertTrue(insights.contains { $0.id == "planned-projection-\(courseID.uuidString)" })
+        let projection = insights.first { $0.id == "planned-projection-\(courseID.uuidString)" }
+        XCTAssertEqual(projection?.courseID, courseID)
     }
 
     func testInsightListIsDeterministicAndCappedAtFour() {
