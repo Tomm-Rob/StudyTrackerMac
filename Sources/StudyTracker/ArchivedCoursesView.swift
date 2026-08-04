@@ -88,7 +88,7 @@ struct ArchivedCoursesView: View {
                 } label: {
                     Label("Restore", systemImage: "arrow.uturn.backward")
                 }
-                .buttonStyle(.borderedProminent)
+                .appButtonStyle(.prominent)
                 .disabled(store.activeClasses.count >= StudyStore.maxClasses)
                 .help(
                     store.activeClasses.count >= StudyStore.maxClasses

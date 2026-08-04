@@ -108,7 +108,7 @@ struct StudySessionTimer: View {
                 Label(isRunning ? "Pause" : "Start", systemImage: isRunning ? "pause.fill" : "play.fill")
                     .frame(width: 82)
             }
-            .buttonStyle(.borderedProminent)
+            .appButtonStyle(.prominent)
             .disabled(effectiveClassID == nil)
 
             Button {
@@ -242,7 +242,7 @@ struct SessionCompletionSheet: View {
                 Button("Save Session") {
                     save(includeRatings: true)
                 }
-                .buttonStyle(.borderedProminent)
+                .appButtonStyle(.prominent)
             }
         }
         .padding(22)
@@ -402,7 +402,7 @@ struct SessionEditor: View {
             Label("Add", systemImage: "plus")
                 .frame(width: 78)
         }
-        .buttonStyle(.borderedProminent)
+        .appButtonStyle(.prominent)
         .disabled(effectiveClassID == nil || (hours == 0 && minutes == 0))
     }
 
@@ -599,7 +599,7 @@ struct SessionEditSheet: View {
                     store.updateSession(session)
                     dismiss()
                 }
-                .buttonStyle(.borderedProminent)
+                .appButtonStyle(.prominent)
                 .disabled(hours == 0 && minutes == 0)
             }
         }

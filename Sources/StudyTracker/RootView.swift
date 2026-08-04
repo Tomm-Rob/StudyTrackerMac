@@ -33,6 +33,7 @@ struct RootView: View {
         }
         .background(AppTheme.background(for: colorScheme))
         .tint(AppTheme.accent)
+        .darkOutlineButtons()
         .onAppear {
             ApplicationIconManager.apply(for: colorScheme)
         }
@@ -117,7 +118,7 @@ private struct SidebarView: View {
                 Label("Add Class", systemImage: "plus")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
+            .appButtonStyle(.prominent)
             .disabled(store.isPersistenceLocked || store.activeClasses.count >= StudyStore.maxClasses)
             .padding([.horizontal, .bottom], 12)
         }
@@ -230,5 +231,131 @@ private struct AppPanelModifier: ViewModifier {
 extension View {
     func appPanel() -> some View {
         modifier(AppPanelModifier())
+    }
+}
+
+enum AppButtonEmphasis {
+    case standard
+    case prominent
+    case destructive
+}
+
+private struct AppAdaptiveButtonStyleModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    let emphasis: AppButtonEmphasis
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if colorScheme == .dark {
+            content.buttonStyle(AppDarkOutlineButtonStyle(emphasis: emphasis))
+        } else {
+            switch emphasis {
+            case .prominent:
+                content.buttonStyle(.borderedProminent)
+            case .standard, .destructive:
+                content.buttonStyle(.bordered)
+            }
+        }
+    }
+}
+
+private struct AppDarkButtonEnvironmentModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if colorScheme == .dark {
+            content.buttonStyle(AppDarkOutlineButtonStyle(emphasis: .standard))
+        } else {
+            content
+        }
+    }
+}
+
+private struct AppDarkOutlineButtonStyle: ButtonStyle {
+    let emphasis: AppButtonEmphasis
+
+    func makeBody(configuration: Configuration) -> some View {
+        AppDarkOutlineButtonBody(
+            label: configuration.label,
+            isPressed: configuration.isPressed,
+            emphasis: emphasis
+        )
+    }
+}
+
+private struct AppDarkOutlineButtonBody<Label: View>: View {
+    @Environment(\.controlSize) private var controlSize
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovering = false
+
+    let label: Label
+    let isPressed: Bool
+    let emphasis: AppButtonEmphasis
+
+    private var horizontalPadding: CGFloat {
+        if controlSize == .mini { return 6 }
+        if controlSize == .small { return 8 }
+        if controlSize == .large { return 12 }
+        return 10
+    }
+
+    private var verticalPadding: CGFloat {
+        if controlSize == .mini { return 3 }
+        if controlSize == .small { return 4 }
+        if controlSize == .large { return 7 }
+        return 5
+    }
+
+    private var borderColor: Color {
+        guard isEnabled else { return AppTheme.separator }
+        switch emphasis {
+        case .prominent:
+            return AppTheme.accent.opacity(isHovering ? 1 : 0.86)
+        case .destructive:
+            return .red.opacity(isHovering ? 1 : 0.78)
+        case .standard:
+            return isHovering ? AppTheme.accent.opacity(0.82) : AppTheme.separator
+        }
+    }
+
+    private var foregroundColor: Color {
+        guard isEnabled else { return .secondary }
+        switch emphasis {
+        case .prominent: return AppTheme.accent
+        case .destructive: return .red
+        case .standard: return .primary
+        }
+    }
+
+    var body: some View {
+        label
+            .foregroundStyle(foregroundColor)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
+            .background {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(.black.opacity(isPressed ? 0.34 : (isHovering ? 0.25 : 0.18)))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(borderColor, lineWidth: 1)
+                    }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .opacity(isEnabled ? 1 : 0.55)
+            .scaleEffect(isPressed ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.12), value: isHovering)
+            .animation(.easeOut(duration: 0.08), value: isPressed)
+            .onHover { isHovering = $0 }
+    }
+}
+
+extension View {
+    func appButtonStyle(_ emphasis: AppButtonEmphasis) -> some View {
+        modifier(AppAdaptiveButtonStyleModifier(emphasis: emphasis))
+    }
+
+    func darkOutlineButtons() -> some View {
+        modifier(AppDarkButtonEnvironmentModifier())
     }
 }
