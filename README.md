@@ -203,7 +203,7 @@ The default layout uses equal compact rectangles in up to three columns and incl
 - Local Insights
 - Goals
 
-Every card fills its assigned rectangle, even when it has little or no content. The Leaderboard opens in **Overall** mode, which includes archived courses and marks them with an archive icon. Use **Active** to show only current courses.
+Every card fills its assigned rectangle, even when it has little or no content. The Leaderboard opens in **Overall** mode, which includes archived courses and marks them with an archive icon. Use **Active** to show only current courses. The list uses all available card space and scrolls when additional classes do not fit.
 
 Additional cards available from the gallery include:
 
@@ -430,7 +430,7 @@ Choose:
 
 - **System:** Follow the Mac appearance
 - **Light:** Use the crisp Studio Light theme
-- **Dark:** Use the graphite-and-mint Graphite Focus theme
+- **Dark:** Use the graphite-and-mint Graphite Focus theme with dark, outlined controls
 
 The app and Dock icon respond to the selected appearance.
 

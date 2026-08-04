@@ -128,7 +128,7 @@ struct PomodoroView: View {
                     Label(isRunning ? "Pause" : "Start", systemImage: isRunning ? "pause.fill" : "play.fill")
                         .frame(width: 106)
                 }
-                .buttonStyle(.borderedProminent)
+                .appButtonStyle(.prominent)
 
                 Button {
                     resetTimer()

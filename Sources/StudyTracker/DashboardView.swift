@@ -3,6 +3,7 @@ import Charts
 
 struct DashboardView: View {
     @EnvironmentObject private var store: StudyStore
+    @Environment(\.colorScheme) private var colorScheme
     let classID: UUID?
 
     @State private var daysBack = 14
@@ -239,7 +240,7 @@ struct DashboardView: View {
                 Button("Done") {
                     isEditingDashboard = false
                 }
-                .buttonStyle(.bordered)
+                .appButtonStyle(.standard)
             }
         } else {
             Button {
@@ -263,8 +264,48 @@ struct DashboardView: View {
         }
     }
 
+    @ViewBuilder
     private var rangePicker: some View {
-        rangeMenu
+        if colorScheme == .dark {
+            graphiteRangePicker
+        } else {
+            rangeMenu
+        }
+    }
+
+    private var graphiteRangePicker: some View {
+        HStack(spacing: 0) {
+            ForEach([7, 14, 30, 90], id: \.self) { range in
+                Button {
+                    daysBack = range
+                } label: {
+                    Text("\(range) days")
+                        .frame(width: 68)
+                        .padding(.vertical, 5)
+                        .background {
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(.black.opacity(daysBack == range ? 0.26 : 0.01))
+                        }
+                        .overlay {
+                            if daysBack == range {
+                                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                    .stroke(AppTheme.accent, lineWidth: 1)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(.black.opacity(0.16))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(AppTheme.separator, lineWidth: 0.75)
+                }
+        }
     }
 
     private var compactRangePicker: some View {
@@ -288,7 +329,7 @@ struct DashboardView: View {
         } label: {
             Label("\(daysBack) days", systemImage: "calendar")
         }
-        .buttonStyle(.bordered)
+        .appButtonStyle(.prominent)
         .fixedSize()
     }
 
@@ -418,7 +459,7 @@ private extension View {
 
 private struct DashboardResponsiveGrid: Layout {
     let spacing: CGFloat
-    private let rowHeight: CGFloat = 170
+    private let rowHeight: CGFloat = 230
     private let service = DashboardLayoutService()
 
     func sizeThatFits(
@@ -566,7 +607,7 @@ private struct DashboardCardHost<Content: View>: View {
             }
             .help("Hide card")
         }
-        .buttonStyle(.bordered)
+        .appButtonStyle(.standard)
         .controlSize(.small)
         .padding(3)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
@@ -587,7 +628,7 @@ private struct DashboardCardGallery: View {
                 Button("Done") {
                     dismiss()
                 }
-                .buttonStyle(.bordered)
+                .appButtonStyle(.standard)
             }
 
             if hiddenDefinitions.isEmpty {
@@ -1032,9 +1073,9 @@ private struct ClassDonutChart: View {
 
     private var chartWidth: CGFloat {
         switch size {
-        case .small: 104
-        case .medium: 132
-        case .large, .wide, .extraLarge: 190
+        case .small: 120
+        case .medium: 150
+        case .large, .wide, .extraLarge: 200
         }
     }
 
@@ -1044,9 +1085,9 @@ private struct ClassDonutChart: View {
 
     private var maximumLegendRows: Int {
         switch size {
-        case .small: 3
-        case .medium: 4
-        case .large, .wide, .extraLarge: 6
+        case .small: 5
+        case .medium: 6
+        case .large, .wide, .extraLarge: 8
         }
     }
 
@@ -1061,11 +1102,14 @@ private struct ClassDonutChart: View {
 
                 Spacer(minLength: 4)
 
-                if !totals.isEmpty {
-                    Text("\(totals.count) classes")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                Image(systemName: "chart.pie")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28, height: 28)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(AppTheme.separator, lineWidth: 0.75)
+                    }
             }
 
             if totals.isEmpty {
@@ -1096,19 +1140,24 @@ private struct ClassDonutChart: View {
     private func donutLegend(totals: [ClassTotal], totalSeconds: TimeInterval) -> some View {
         VStack(alignment: .leading, spacing: size == .small ? 4 : 7) {
             ForEach(Array(totals.prefix(maximumLegendRows))) { total in
-                HStack(spacing: 6) {
+                HStack(alignment: .top, spacing: 7) {
                     Circle()
                         .fill(Color(hex: total.studyClass.colorHex))
-                        .frame(width: 7, height: 7)
+                        .frame(width: 8, height: 8)
+                        .padding(.top, 3)
 
-                    Text(total.studyClass.name)
-                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(total.studyClass.name)
+                            .lineLimit(1)
 
-                    Spacer(minLength: 2)
-
-                    Text((total.seconds / totalSeconds).formatted(.percent.precision(.fractionLength(0))))
+                        Text(
+                            "\(total.seconds.compactDuration) ("
+                                + (total.seconds / totalSeconds).formatted(.percent.precision(.fractionLength(0)))
+                                + ")"
+                        )
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
+                    }
                 }
             }
 
@@ -1295,18 +1344,8 @@ private struct ClassLeaderboard: View {
     @State private var scope = LeaderboardScope.overall
     let size: DashboardCardSize
 
-    private var maximumRows: Int? {
-        switch size {
-        case .small: 2
-        case .medium: 3
-        case .large, .wide, .extraLarge: nil
-        }
-    }
-
     var body: some View {
         let totals = store.classTotals(includingArchived: scope == .overall)
-        let visibleTotals = maximumRows.map { Array(totals.prefix($0)) } ?? totals
-
         VStack(alignment: .leading, spacing: size == .small ? 5 : 8) {
             HStack(spacing: 8) {
                 Text("Leaderboard")
@@ -1314,15 +1353,33 @@ private struct ClassLeaderboard: View {
 
                 Spacer(minLength: 4)
 
-                Picker("Courses", selection: $scope) {
+                HStack(spacing: 9) {
                     ForEach(LeaderboardScope.allCases) { option in
-                        Text(option.title).tag(option)
+                        Button {
+                            scope = option
+                        } label: {
+                            HStack(spacing: 4) {
+                                ZStack {
+                                    Circle()
+                                        .stroke(
+                                            scope == option ? AppTheme.accent : AppTheme.separator,
+                                            lineWidth: 1
+                                        )
+                                    if scope == option {
+                                        Circle()
+                                            .fill(AppTheme.accent)
+                                            .padding(2.5)
+                                    }
+                                }
+                                .frame(width: 10, height: 10)
+
+                                Text(option.title)
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .controlSize(.mini)
-                .frame(width: size == .small ? 108 : 132)
+                .font(.caption2)
             }
 
             if totals.isEmpty {
@@ -1331,42 +1388,45 @@ private struct ClassLeaderboard: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(visibleTotals.enumerated()), id: \.element.id) { index, total in
-                        HStack(spacing: size == .small ? 5 : 8) {
-                            Text("\(index + 1)")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: size == .small ? 12 : 18, alignment: .leading)
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(totals.enumerated()), id: \.element.id) { index, total in
+                            HStack(spacing: size == .small ? 5 : 8) {
+                                Text("\(index + 1)")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: size == .small ? 12 : 18, alignment: .leading)
 
-                            Circle()
-                                .fill(Color(hex: total.studyClass.colorHex))
-                                .frame(width: 8, height: 8)
+                                Circle()
+                                    .fill(Color(hex: total.studyClass.colorHex))
+                                    .frame(width: 8, height: 8)
 
-                            Text(total.studyClass.name)
-                                .lineLimit(1)
+                                Text(total.studyClass.name)
+                                    .lineLimit(1)
 
-                            if total.studyClass.isArchived {
-                                Image(systemName: "archivebox")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                                    .help("Archived course")
+                                if total.studyClass.isArchived {
+                                    Image(systemName: "archivebox")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                        .help("Archived course")
+                                }
+
+                                Spacer(minLength: 4)
+
+                                Text(total.seconds.compactDuration)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
                             }
+                            .font(size == .small ? .caption : .callout)
+                            .padding(.vertical, size == .small ? 4 : 5)
 
-                            Spacer(minLength: 4)
-
-                            Text(total.seconds.compactDuration)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        }
-                        .font(size == .small ? .caption : .callout)
-                        .padding(.vertical, size == .small ? 4 : 5)
-
-                        if total.id != visibleTotals.last?.id {
-                            Divider()
+                            if total.id != totals.last?.id {
+                                Divider()
+                            }
                         }
                     }
                 }
+                .scrollIndicators(.automatic)
             }
         }
         .padding(size == .small ? 10 : 12)

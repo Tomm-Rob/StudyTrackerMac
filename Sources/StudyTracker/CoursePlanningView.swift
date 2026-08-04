@@ -99,7 +99,7 @@ struct CoursePlanningEditor: View {
                 Button("Save") {
                     save()
                 }
-                .buttonStyle(.borderedProminent)
+                .appButtonStyle(.prominent)
                 .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || hasInvalidNumber)
             }
             .padding(16)

@@ -87,7 +87,7 @@ struct GoalsView: View {
         } label: {
             Label("Add Goal", systemImage: "plus")
         }
-        .buttonStyle(.borderedProminent)
+        .appButtonStyle(.prominent)
     }
 
     private var archivedSection: some View {
@@ -478,7 +478,7 @@ struct GoalEditorSheet: View {
                 Button(existingGoal == nil ? "Add Goal" : "Save") {
                     save()
                 }
-                .buttonStyle(.borderedProminent)
+                .appButtonStyle(.prominent)
                 .disabled(!canSave)
             }
         }
