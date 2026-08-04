@@ -346,7 +346,7 @@ struct DashboardView: View {
     private func dashboardCardContent(for card: DashboardCardInstance) -> some View {
         switch card.kindID {
         case "total-time":
-            MetricTile(title: "Total Study Time", value: totalSeconds.compactDuration, systemImage: "clock")
+            DashboardTotalStudyTimeCard(daysBack: daysBack, size: card.size)
         case "sessions":
             MetricTile(title: "Sessions", value: "\(sessionCount)", systemImage: "list.bullet.rectangle")
         case "classes":
@@ -440,8 +440,8 @@ struct DashboardView: View {
 
     private func insightCount(for size: DashboardCardSize) -> Int {
         switch size {
-        case .small, .medium: 1
-        case .large, .wide: 2
+        case .small, .medium: 3
+        case .large, .wide: 4
         case .extraLarge: 4
         }
     }
@@ -739,34 +739,155 @@ private struct DashboardInsightsCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 6 : 10) {
+        VStack(alignment: .leading, spacing: compact ? 7 : 10) {
             Label("Local Insights", systemImage: "lightbulb")
                 .font(.headline)
 
-            ForEach(insights.prefix(maximumVisible)) { insight in
-                HStack(alignment: .top, spacing: 8) {
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 5, height: 5)
-                        .padding(.top, 6)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(insight.title)
-                            .font(.callout.weight(.semibold))
-                        Text(insight.explanation)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(compact ? 2 : nil)
-                        Text(insight.dateRangeDescription)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(insights.prefix(maximumVisible).enumerated()), id: \.element.id) { index, insight in
+                    if index > 0 {
+                        Divider()
+                            .padding(.leading, 15)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    HStack(alignment: .top, spacing: 8) {
+                        Circle()
+                            .fill(markerColor(for: insight))
+                            .frame(width: 7, height: 7)
+                            .padding(.top, compact ? 5 : 6)
+                        VStack(alignment: .leading, spacing: compact ? 1 : 2) {
+                            Text(insight.title)
+                                .font(compact ? .caption.weight(.semibold) : .callout.weight(.semibold))
+                                .lineLimit(1)
+                            Text(insight.explanation)
+                                .font(compact ? .caption2 : .caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(compact ? 1 : 2)
+
+                            if !compact {
+                                Text(insight.dateRangeDescription)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.vertical, compact ? 5 : 7)
                 }
             }
         }
         .padding(compact ? 10 : 12)
         .appPanel()
+    }
+
+    private func markerColor(for insight: GeneratedInsight) -> Color {
+        guard let courseID = insight.courseID,
+              let studyClass = store.data.classes.first(where: { $0.id == courseID }) else {
+            return Color.accentColor
+        }
+        return Color(hex: studyClass.colorHex)
+    }
+}
+
+private struct DashboardTotalStudyTimeCard: View {
+    @EnvironmentObject private var store: StudyStore
+    let daysBack: Int
+    let size: DashboardCardSize
+    private let calendar = Calendar.current
+    private let service = InsightsService()
+
+    var body: some View {
+        let now = Date()
+        let snapshot = snapshot(asOf: now)
+
+        VStack(spacing: 0) {
+            HStack(alignment: .center) {
+                Text("Total Study Time")
+                    .font(.headline)
+                Spacer()
+                Image(systemName: "clock")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30, height: 30)
+                    .background {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(AppTheme.separator, lineWidth: 1)
+                    }
+            }
+
+            Spacer(minLength: 8)
+
+            Text(snapshot.totalStudyTime.compactDuration)
+                .font(.system(size: valueFontSize, weight: .medium, design: .rounded))
+                .foregroundStyle(AppTheme.accent)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            comparisonLabel(snapshot.comparison)
+                .padding(.top, 8)
+
+            Spacer(minLength: 6)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .appPanel()
+    }
+
+    private var valueFontSize: CGFloat {
+        switch size {
+        case .small, .medium: 36
+        case .large, .wide: 42
+        case .extraLarge: 48
+        }
+    }
+
+    private func snapshot(asOf date: Date) -> InsightsSnapshot {
+        let periodLength = max(1, daysBack)
+        let today = calendar.startOfDay(for: date)
+        let currentStart = calendar.date(
+            byAdding: .day,
+            value: -(periodLength - 1),
+            to: today
+        ) ?? today
+        let previousStart = calendar.date(
+            byAdding: .day,
+            value: -periodLength,
+            to: currentStart
+        ) ?? currentStart
+
+        return service.snapshot(
+            classes: store.data.classes,
+            sessions: store.data.sessions,
+            interval: DateInterval(start: currentStart, end: date.addingTimeInterval(1)),
+            comparisonInterval: DateInterval(start: previousStart, end: currentStart),
+            asOf: date
+        )
+    }
+
+    @ViewBuilder
+    private func comparisonLabel(_ comparison: PeriodComparison?) -> some View {
+        if let comparison, let change = comparison.percentageChange {
+            let percent = Int((abs(change) * 100).rounded())
+            HStack(spacing: 4) {
+                Image(systemName: change >= 0 ? "arrow.up" : "arrow.down")
+                Text("\(percent)%")
+                    .fontWeight(.semibold)
+                Text("vs previous \(daysBack) days")
+                    .foregroundStyle(.secondary)
+            }
+            .font(.callout)
+            .foregroundStyle(change >= 0 ? Color.green : Color.orange)
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+        } else {
+            Text("No previous \(daysBack)-day baseline")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
     }
 }
 
