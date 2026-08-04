@@ -5,14 +5,17 @@ struct StudySessionTimer: View {
     let classID: UUID?
 
     @State private var selectedClassID: UUID?
-    @State private var elapsedSeconds = 0
-    @State private var isRunning = false
-    @State private var sessionStartedAt: Date?
+    @State private var displayDate = Date()
     @State private var pendingCompletion: SessionCompletionDraft?
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var effectiveClassID: UUID? {
+        if let activeClassID = store.activeStudyTimer.classID,
+           store.activeClasses.contains(where: { $0.id == activeClassID }) {
+            return activeClassID
+        }
+
         if let classID {
             return store.activeClasses.contains(where: { $0.id == classID }) ? classID : nil
         }
@@ -23,6 +26,10 @@ struct StudySessionTimer: View {
         }
 
         return store.activeClasses.first?.id
+    }
+
+    private var elapsedSeconds: Int {
+        Int(store.activeStudyTimer.elapsedDuration(at: displayDate))
     }
 
     var body: some View {
@@ -47,10 +54,10 @@ struct StudySessionTimer: View {
         .appPanel()
         .onAppear {
             selectedClassID = effectiveClassID
+            displayDate = Date()
         }
-        .onReceive(timer) { _ in
-            guard isRunning else { return }
-            elapsedSeconds += 1
+        .onReceive(timer) { date in
+            displayDate = date
         }
         .onChange(of: store.activeClasses.map(\.id)) { _, _ in
             if classID == nil {
@@ -71,7 +78,7 @@ struct StudySessionTimer: View {
 
     private var timerHeader: some View {
         HStack(spacing: 12) {
-            Image(systemName: isRunning ? "stopwatch.fill" : "stopwatch")
+            Image(systemName: store.activeStudyTimer.isRunning ? "stopwatch.fill" : "stopwatch")
                 .font(.system(size: 24))
                 .foregroundStyle(.tint)
 
@@ -97,6 +104,7 @@ struct StudySessionTimer: View {
                 }
             }
             .frame(width: 190)
+            .disabled(store.activeStudyTimer.hasSession)
         }
     }
 
@@ -105,7 +113,10 @@ struct StudySessionTimer: View {
             Button {
                 toggleTimer()
             } label: {
-                Label(isRunning ? "Pause" : "Start", systemImage: isRunning ? "pause.fill" : "play.fill")
+                Label(
+                    store.activeStudyTimer.isRunning ? "Pause" : "Start",
+                    systemImage: store.activeStudyTimer.isRunning ? "pause.fill" : "play.fill"
+                )
                     .frame(width: 82)
             }
             .appButtonStyle(.prominent)
@@ -117,7 +128,7 @@ struct StudySessionTimer: View {
                 Image(systemName: "arrow.counterclockwise")
             }
             .help("Reset timer")
-            .disabled(elapsedSeconds == 0)
+            .disabled(!store.activeStudyTimer.hasSession)
 
             Button {
                 logTimer()
@@ -130,29 +141,36 @@ struct StudySessionTimer: View {
     }
 
     private func toggleTimer() {
-        guard effectiveClassID != nil else { return }
+        guard let effectiveClassID else { return }
+        let now = Date()
+        displayDate = now
 
-        if sessionStartedAt == nil {
-            sessionStartedAt = Date()
+        if store.activeStudyTimer.isRunning {
+            store.pauseStudyTimer(at: now)
+        } else {
+            store.startStudyTimer(classID: effectiveClassID, at: now)
         }
-
-        isRunning.toggle()
     }
 
     private func resetTimer() {
-        isRunning = false
-        elapsedSeconds = 0
-        sessionStartedAt = nil
+        store.resetStudyTimer()
+        displayDate = Date()
     }
 
     private func logTimer() {
-        guard let effectiveClassID, elapsedSeconds > 0 else { return }
-        isRunning = false
+        let now = Date()
+        store.pauseStudyTimer(at: now)
+        displayDate = now
+        let duration = store.activeStudyTimer.elapsedDuration(at: now)
+        guard let effectiveClassID,
+              let startedAt = store.activeStudyTimer.startedAt,
+              duration >= 1 else { return }
+
         pendingCompletion = SessionCompletionDraft(
             classID: effectiveClassID,
-            startedAt: sessionStartedAt ?? Date(),
-            endedAt: Date(),
-            duration: TimeInterval(elapsedSeconds),
+            startedAt: startedAt,
+            endedAt: now,
+            duration: duration,
             source: .timer,
             pomodoroIntervalCount: 0,
             completionState: .completedNormally

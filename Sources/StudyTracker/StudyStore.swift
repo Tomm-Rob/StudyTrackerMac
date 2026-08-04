@@ -11,6 +11,8 @@ final class StudyStore: ObservableObject {
         }
     }
 
+    @Published private(set) var activeStudyTimer = ActiveStudyTimerState()
+
     @Published private(set) var dataFileURL: URL
     @Published var lastError: String?
     @Published private(set) var isPersistenceLocked = false
@@ -193,6 +195,19 @@ final class StudyStore: ObservableObject {
 
     func deleteSession(id: UUID) {
         data.sessions.removeAll { $0.id == id }
+    }
+
+    func startStudyTimer(classID: UUID, at date: Date = Date()) {
+        guard activeClasses.contains(where: { $0.id == classID }) else { return }
+        activeStudyTimer.start(classID: classID, at: date)
+    }
+
+    func pauseStudyTimer(at date: Date = Date()) {
+        activeStudyTimer.pause(at: date)
+    }
+
+    func resetStudyTimer() {
+        activeStudyTimer.reset()
     }
 
     func className(for id: UUID) -> String {
