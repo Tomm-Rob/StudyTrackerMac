@@ -792,6 +792,7 @@ private struct DashboardInsightsCard: View {
 
 private struct DashboardTotalStudyTimeCard: View {
     @EnvironmentObject private var store: StudyStore
+    @AppStorage("Dashboard.TotalStudyTimeScope") private var scope = TotalStudyTimeScope.range
     let daysBack: Int
     let size: DashboardCardSize
     private let calendar = Calendar.current
@@ -805,15 +806,8 @@ private struct DashboardTotalStudyTimeCard: View {
             HStack(alignment: .center) {
                 Text("Total Study Time")
                     .font(.headline)
-                Spacer()
-                Image(systemName: "clock")
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 30, height: 30)
-                    .background {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(AppTheme.separator, lineWidth: 1)
-                    }
+                Spacer(minLength: 6)
+                scopePicker
             }
 
             Spacer(minLength: 8)
@@ -826,7 +820,7 @@ private struct DashboardTotalStudyTimeCard: View {
                 .minimumScaleFactor(0.65)
                 .frame(maxWidth: .infinity, alignment: .center)
 
-            comparisonLabel(snapshot.comparison)
+            statusLabel(snapshot.comparison)
                 .padding(.top, 8)
 
             Spacer(minLength: 6)
@@ -844,7 +838,47 @@ private struct DashboardTotalStudyTimeCard: View {
         }
     }
 
+    private var scopePicker: some View {
+        HStack(spacing: 7) {
+            ForEach(TotalStudyTimeScope.allCases) { option in
+                Button {
+                    scope = option
+                } label: {
+                    HStack(spacing: 3) {
+                        ZStack {
+                            Circle()
+                                .stroke(
+                                    scope == option ? AppTheme.accent : AppTheme.separator,
+                                    lineWidth: 1
+                                )
+                            if scope == option {
+                                Circle()
+                                    .fill(AppTheme.accent)
+                                    .padding(2.25)
+                            }
+                        }
+                        .frame(width: 9, height: 9)
+
+                        Text(option.title)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .font(.caption2)
+        .fixedSize()
+    }
+
     private func snapshot(asOf date: Date) -> InsightsSnapshot {
+        if scope == .overall {
+            return service.snapshot(
+                classes: store.data.classes,
+                sessions: store.data.sessions,
+                interval: nil,
+                asOf: date
+            )
+        }
+
         let periodLength = max(1, daysBack)
         let today = calendar.startOfDay(for: date)
         let currentStart = calendar.date(
@@ -868,8 +902,13 @@ private struct DashboardTotalStudyTimeCard: View {
     }
 
     @ViewBuilder
-    private func comparisonLabel(_ comparison: PeriodComparison?) -> some View {
-        if let comparison, let change = comparison.percentageChange {
+    private func statusLabel(_ comparison: PeriodComparison?) -> some View {
+        if scope == .overall {
+            Text("Across all recorded sessions")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        } else if let comparison, let change = comparison.percentageChange {
             let percent = Int((abs(change) * 100).rounded())
             HStack(spacing: 4) {
                 Image(systemName: change >= 0 ? "arrow.up" : "arrow.down")
@@ -887,6 +926,20 @@ private struct DashboardTotalStudyTimeCard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+        }
+    }
+}
+
+private enum TotalStudyTimeScope: String, CaseIterable, Identifiable {
+    case range
+    case overall
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .range: "Range"
+        case .overall: "Overall"
         }
     }
 }
