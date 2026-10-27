@@ -135,10 +135,10 @@ struct DashboardView: View {
                 }
 
                 StudySessionTimer(classID: classID)
+                SessionEditor(classID: classID)
                 GoalsSection(classID: classID, maximumVisible: 5)
                 DailyBarChart(classID: classID, daysBack: daysBack, compact: false)
                     .frame(minHeight: 250)
-                SessionEditor(classID: classID)
                 SessionList(classID: classID, editingSession: $editingSession)
             }
             .padding(16)
