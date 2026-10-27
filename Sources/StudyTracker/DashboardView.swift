@@ -1349,10 +1349,6 @@ private struct ClassDonutChart: View {
         totalSeconds: TimeInterval
     ) -> some View {
         ZStack(alignment: .topLeading) {
-            Circle()
-                .stroke(AppTheme.separator.opacity(0.55), lineWidth: ringWidth)
-                .padding(ringWidth / 2)
-
             Chart(totals) { total in
                 SectorMark(
                     angle: .value("Hours", total.seconds.hours),
@@ -1363,6 +1359,15 @@ private struct ClassDonutChart: View {
                 .cornerRadius(2)
             }
             .chartLegend(.hidden)
+            .chartPlotStyle { plotArea in
+                plotArea
+                    .aspectRatio(1, contentMode: .fit)
+                    .background {
+                        Circle()
+                            .stroke(AppTheme.separator.opacity(0.55), lineWidth: ringWidth)
+                            .padding(ringWidth / 2)
+                    }
+            }
             .overlay {
                 VStack(spacing: 1) {
                     Text(totalSeconds.compactDuration)
