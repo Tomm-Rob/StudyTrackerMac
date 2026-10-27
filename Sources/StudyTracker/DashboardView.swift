@@ -1359,40 +1359,50 @@ private struct ClassDonutChart: View {
                 .cornerRadius(2)
             }
             .chartLegend(.hidden)
-            .chartPlotStyle { plotArea in
-                plotArea
-                    .aspectRatio(1, contentMode: .fit)
-                    .background {
+            .chartBackground { proxy in
+                GeometryReader { geometry in
+                    if let plotFrameAnchor = proxy.plotFrame {
+                        let plotFrame = geometry[plotFrameAnchor]
+                        let diameter = max(0, min(plotFrame.width, plotFrame.height) - ringWidth)
+
                         Circle()
                             .stroke(AppTheme.separator.opacity(0.55), lineWidth: ringWidth)
-                            .padding(ringWidth / 2)
+                            .frame(width: diameter, height: diameter)
+                            .position(x: plotFrame.midX, y: plotFrame.midY)
                     }
-            }
-            .overlay {
-                VStack(spacing: 1) {
-                    Text(totalSeconds.compactDuration)
-                        .font(size == .small ? .caption.weight(.semibold) : .callout.weight(.semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-                    Text("Total")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
                 }
-                .allowsHitTesting(false)
             }
-            .chartOverlay { _ in
+            .chartOverlay { proxy in
                 GeometryReader { geometry in
-                    Rectangle()
-                        .fill(.clear)
-                        .contentShape(Rectangle())
-                        .onContinuousHover { phase in
-                            updateCircleHover(
-                                phase,
-                                geometry: geometry,
-                                totals: totals,
-                                innerRadiusRatio: 0.68
-                            )
+                    if let plotFrameAnchor = proxy.plotFrame {
+                        let plotFrame = geometry[plotFrameAnchor]
+
+                        ZStack(alignment: .topLeading) {
+                            VStack(spacing: 1) {
+                                Text(totalSeconds.compactDuration)
+                                    .font(size == .small ? .caption.weight(.semibold) : .callout.weight(.semibold))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.72)
+                                Text("Total")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .position(x: plotFrame.midX, y: plotFrame.midY)
+                            .allowsHitTesting(false)
+
+                            Rectangle()
+                                .fill(.clear)
+                                .contentShape(Rectangle())
+                                .onContinuousHover { phase in
+                                    updateCircleHover(
+                                        phase,
+                                        plotFrame: plotFrame,
+                                        totals: totals,
+                                        innerRadiusRatio: 0.68
+                                    )
+                                }
                         }
+                    }
                 }
             }
 
@@ -1404,15 +1414,19 @@ private struct ClassDonutChart: View {
 
     private func updateCircleHover(
         _ phase: HoverPhase,
-        geometry: GeometryProxy,
+        plotFrame: CGRect,
         totals: [ClassTotal],
         innerRadiusRatio: CGFloat
     ) {
         switch phase {
         case .active(let location):
+            let plotLocation = CGPoint(
+                x: location.x - plotFrame.minX,
+                y: location.y - plotFrame.minY
+            )
             guard let hovered = hoveredClassTotal(
-                at: location,
-                in: geometry.size,
+                at: plotLocation,
+                in: plotFrame.size,
                 totals: totals,
                 innerRadiusRatio: innerRadiusRatio
             ) else {
